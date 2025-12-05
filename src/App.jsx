@@ -5,10 +5,8 @@ import {
   X, Key, Mail, Bell, CheckSquare, Square, Send, Image as ImageIcon, 
   Trash2, Clock, ShoppingCart, Briefcase, TrendingUp, TrendingDown, 
   Gift, Cake, RefreshCw, AlertTriangle, Loader, Wifi, WifiOff, 
-  CheckCircle, XCircle, MessageSquare, ExternalLink
+  CheckCircle, XCircle, MessageSquare, ExternalLink, ChevronRight, Sparkles, LayoutDashboard
 } from 'lucide-react';
-
-// --- FIREBASE IMPORTS ---
 import { initializeApp } from 'firebase/app';
 import { getAnalytics } from "firebase/analytics";
 import { 
@@ -20,7 +18,6 @@ import {
 } from 'firebase/firestore';
 
 // --- 1. FIREBASE CONFIGURATION ---
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCUFEEVL2b2MpOl9lFfpBzAyQn4HpTf05Q",
   authDomain: "smart-manager-b19f7.firebaseapp.com",
@@ -32,31 +29,39 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-// We wrap this in a try-catch block to prevent crashes if config is invalid
-let app, auth, db, analytics;
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const analytics = getAnalytics(app);
 
-try {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  // Analytics is optional and may fail in some environments, so we handle it safely
-  if (typeof window !== 'undefined') {
-    analytics = getAnalytics(app);
-  }
-} catch (e) {
-  console.error("Firebase Initialization Error:", e);
-}
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const apiKey = "AIzaSyArZC6itvjovGkS6FDfZRruk3sH2c5_Prc"; 
 
-const appId = 'smart-manager-app'; // Fixed App ID for your deployment
-
-// --- 2. CONSTANTS & COLLECTIONS ---
+// Collections
 const USERS_COLLECTION = 'dues_app_users';
 const TRANSACTIONS_COLLECTION = 'dues_app_transactions';
 const SETTINGS_COLLECTION = 'dues_app_settings';
 const MESSAGES_COLLECTION = 'dues_app_messages';
 const CHATS_COLLECTION = 'dues_app_chats';
 
-// --- 3. HELPER FUNCTIONS ---
+// --- 2. HELPER FUNCTIONS ---
+
+const callGemini = async (prompt) => {
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      }
+    );
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Could not generate.";
+  } catch (error) {
+    return "AI Unavailable.";
+  }
+};
 
 const compressImage = (file) => {
   return new Promise((resolve) => {
@@ -79,36 +84,50 @@ const compressImage = (file) => {
   });
 };
 
-const formatDateSafe = (isoString) => {
-  if (!isoString) return 'Date N/A';
-  try { return new Date(isoString).toLocaleDateString(); } catch (e) { return 'Invalid'; }
+const formatDateSafe = (val) => {
+  if (!val) return 'N/A';
+  try {
+    if (val.seconds) return new Date(val.seconds * 1000).toLocaleDateString();
+    return new Date(val).toLocaleDateString();
+  } catch (e) { return 'Invalid Date'; }
 };
 
-// --- 4. SUB-COMPONENTS ---
+// Safe number parsing to prevent NaN
+const safeNumber = (val) => {
+  const num = parseFloat(val);
+  return isNaN(num) ? 0 : num;
+};
+
+// --- 3. SUB-COMPONENTS ---
 
 const ConnectionStatus = ({ isOnline }) => (
-  <div className={`fixed bottom-4 right-4 px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-bold shadow-lg z-50 ${isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+  <div className={`fixed bottom-6 right-6 px-4 py-2 rounded-full flex items-center gap-2 text-xs font-bold shadow-xl z-50 transition-all duration-500 ${isOnline ? 'bg-emerald-500 text-white translate-y-20 opacity-0 hover:translate-y-0 hover:opacity-100' : 'bg-rose-500 text-white translate-y-0 opacity-100'}`}>
     {isOnline ? <Wifi size={14}/> : <WifiOff size={14}/>} {isOnline ? 'Online' : 'Offline'}
   </div>
 );
 
 const ChatBubble = ({ msg, isOwn, senderName }) => {
-  const timeString = msg.createdAt?.seconds 
-    ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
-    : '...';
+  let timeString = '...';
+  if (msg.createdAt && msg.createdAt.seconds) {
+    timeString = new Date(msg.createdAt.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  }
 
   return (
-    <div className={`flex flex-col mb-2 ${isOwn ? 'items-end' : 'items-start'}`}>
-      {!isOwn && <span className="text-[10px] text-slate-400 mb-0.5 ml-1">{senderName}</span>}
-      <div className={`px-3 py-1.5 rounded-2xl max-w-[85%] text-sm ${isOwn ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white border border-slate-200 text-slate-700 rounded-bl-none shadow-sm'}`}>
-        {msg.text}
+    <div className={`flex flex-col mb-2 ${isOwn ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2`}>
+      <div className={`px-3 py-1.5 rounded-2xl max-w-[85%] text-sm ${
+        isOwn 
+          ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm' 
+          : 'bg-white text-slate-700 border border-slate-100 rounded-2xl rounded-tl-sm shadow-sm'
+      }`}>
+        {!isOwn && <p className="text-[10px] font-bold text-indigo-500 mb-0.5 opacity-80">{String(senderName)}</p>}
+        {String(msg.text)}
       </div>
-      <span className="text-[9px] text-slate-300 mt-0.5 mx-1">{timeString}</span>
+      <span className="text-[9px] text-slate-300 mt-0.5 mx-1 font-medium">{timeString}</span>
     </div>
   );
 };
 
-const ChatComponent = ({ messages, currentUserId, onSend, placeholder }) => {
+const ChatComponent = ({ messages = [], currentUserId, onSend, placeholder }) => {
   const [text, setText] = useState('');
   const bottomRef = useRef(null);
   
@@ -122,16 +141,28 @@ const ChatComponent = ({ messages, currentUserId, onSend, placeholder }) => {
   };
 
   return (
-    <div className="flex flex-col h-[60vh] md:h-[500px] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+    <div className="flex flex-col h-[60vh] bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden shadow-inner">
       <div className="flex-1 overflow-y-auto p-4 scroll-smooth">
-        {messages.length === 0 ? <div className="text-center text-slate-400 mt-10 text-sm">No messages yet.</div> : 
+        {messages.length === 0 ? 
+          <div className="h-full flex flex-col items-center justify-center text-slate-400">
+            <MessageSquare size={32} className="mb-2 opacity-20"/>
+            <p className="text-sm">No messages yet</p>
+          </div> : 
           messages.map(msg => <ChatBubble key={msg.id} msg={msg} isOwn={msg.senderId === currentUserId} senderName={msg.senderName} />)
         }
         <div ref={bottomRef} />
       </div>
-      <form onSubmit={handleSend} className="bg-white p-3 border-t border-slate-200 flex gap-2">
-        <input type="text" className="flex-1 px-4 py-2 bg-slate-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder={placeholder} value={text} onChange={(e) => setText(e.target.value)} />
-        <button type="submit" className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700"><Send size={18} /></button>
+      <form onSubmit={handleSend} className="bg-white p-3 border-t border-slate-100 flex gap-2 items-center">
+        <input 
+          type="text" 
+          className="flex-1 px-4 py-2 bg-slate-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-indigo-500/20" 
+          placeholder={placeholder} 
+          value={text} 
+          onChange={(e) => setText(e.target.value)} 
+        />
+        <button type="submit" className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700">
+          <Send size={16} />
+        </button>
       </form>
     </div>
   );
@@ -139,27 +170,40 @@ const ChatComponent = ({ messages, currentUserId, onSend, placeholder }) => {
 
 const TransactionItem = React.memo(({ tx, userName, onDelete, isAdmin }) => {
   const isPending = tx.status === 'pending';
+  // Force number conversion
+  const amount = safeNumber(tx.amount);
+
   return (
-    <div className={`flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm mb-2 ${isPending ? 'border-yellow-200 bg-yellow-50/50' : 'border-slate-100'}`}>
+    <div className={`group flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm mb-2 ${isPending ? 'border-amber-200 bg-amber-50/30' : 'border-slate-100 hover:border-indigo-200'}`}>
       <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isPending ? 'bg-yellow-100 text-yellow-600' : (tx.type === 'payment' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600')}`}>
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isPending ? 'bg-amber-100 text-amber-600' : (tx.type === 'payment' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600')}`}>
           {isPending ? <Clock size={16}/> : (tx.type === 'payment' ? <Plus size={16} /> : <Minus size={16} />)}
         </div>
         <div>
-          <div className="flex items-center gap-2">
-             <p className="font-semibold text-sm text-slate-800">{tx.description || 'Transaction'}</p>
-             <span className={`text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${(tx.category || 'main') === 'grocery' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{(tx.category || 'main') === 'grocery' ? 'Grocery' : 'Main'}</span>
-             {isPending && <span className="bg-yellow-100 text-yellow-700 text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">Pending</span>}
+          <div className="flex items-center gap-2 flex-wrap">
+             <p className="font-semibold text-sm text-slate-800">{String(tx.description || 'Transaction')}</p>
+             {isPending && <span className="bg-amber-100 text-amber-700 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">Pending</span>}
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5"><Calendar size={10} /> {formatDateSafe(tx.date)} &bull; {userName || 'System'}</div>
+          <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+             <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
+               (tx.category || 'main') === 'grocery' ? 'bg-orange-100 text-orange-600' : 'bg-indigo-50 text-indigo-600'
+             }`}>
+               {(tx.category || 'main') === 'grocery' ? 'Grocery' : 'Main'}
+             </span>
+             <span>• {formatDateSafe(tx.date)}</span>
+             <span>• {userName || 'System'}</span>
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <span className={`font-bold text-sm ${isPending ? 'text-slate-400' : (tx.type === 'payment' ? 'text-emerald-600' : 'text-rose-600')}`}>{tx.type === 'payment' ? '-' : '+'} ₹{Number(tx.amount || 0).toFixed(2)}</span>
+        <span className={`font-bold text-sm ${isPending ? 'text-slate-400' : (tx.type === 'payment' ? 'text-emerald-600' : 'text-slate-800')}`}>
+          {tx.type === 'payment' ? '+' : '-'} ₹{amount.toFixed(2)}
+        </span>
         {isAdmin && onDelete && (
           <button 
             onClick={(e) => { e.stopPropagation(); onDelete(tx.id); }} 
-            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+            title="Delete Transaction"
           >
             <Trash2 size={14} />
           </button>
@@ -170,61 +214,70 @@ const TransactionItem = React.memo(({ tx, userName, onDelete, isAdmin }) => {
 });
 
 const InvitationCard = ({ msg, onDiscuss }) => (
-  <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden mb-6">
+  <div className="bg-white rounded-[1.5rem] shadow-lg border border-slate-200 overflow-hidden mb-6 group hover:shadow-xl transition-all">
+    {msg.imageUrl && (
+      <div className="w-full bg-slate-50 border-b border-slate-100">
+        <img src={msg.imageUrl} alt="Event Invitation" className="w-full h-auto block" />
+      </div>
+    )}
     <div className={`p-4 border-b border-slate-100 ${!msg.imageUrl ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white' : 'bg-white text-slate-800'}`}>
-        <h3 className="font-bold text-lg">{msg.title}</h3>
+        <h3 className="font-bold text-lg">{String(msg.title)}</h3>
         <p className={`text-xs flex items-center gap-1 mt-1 ${!msg.imageUrl ? 'text-indigo-100' : 'text-slate-500'}`}><Clock size={12}/> Event Date: {formatDateSafe(msg.eventDate)}</p>
     </div>
-    {msg.imageUrl && <div className="w-full bg-slate-50 border-b border-slate-100"><img src={msg.imageUrl} alt="Event" className="w-full h-auto block" /></div>}
     <div className="p-4">
-      <p className="text-slate-600 whitespace-pre-line text-sm leading-relaxed mb-3">{msg.description}</p>
+      <p className="text-slate-600 whitespace-pre-line text-sm leading-relaxed mb-3">{String(msg.description)}</p>
       <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-xs text-slate-400">
          <span>Posted: {msg.createdAt ? formatDateSafe(new Date(msg.createdAt.seconds * 1000)) : 'Recently'}</span>
-         {onDiscuss && <button onClick={onDiscuss} className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-full font-bold text-[10px] flex items-center gap-1 hover:bg-indigo-100 transition-colors"><MessageSquare size={12}/> Discuss</button>}
+         {onDiscuss && (
+           <button 
+             onClick={onDiscuss} 
+             className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-full font-bold text-[10px] flex items-center gap-1 hover:bg-indigo-100 transition-colors"
+           >
+             <MessageSquare size={12}/> Discuss
+           </button>
+         )}
       </div>
     </div>
   </div>
 );
 
-// --- 5. MAIN VIEW COMPONENTS ---
+// --- 5. DASHBOARD COMPONENTS ---
 
 const LoginView = ({ users, loginForm, setLoginForm, handleLogin, isSubmitting, loadingState, error }) => {
   const [showRetry, setShowRetry] = useState(false);
-  
-  useEffect(() => {
-    let timer;
-    if (loadingState) {
-      timer = setTimeout(() => setShowRetry(true), 8000); 
-    }
-    return () => clearTimeout(timer);
-  }, [loadingState]);
+  useEffect(() => { if (loadingState) setTimeout(() => setShowRetry(true), 8000); }, [loadingState]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
-      <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full">
-        <div className="text-center mb-8">
-          <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><DollarSign className="text-white w-8 h-8" /></div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">SMART MANAGER</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-slate-50 to-purple-50 p-6">
+      <div className="bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl shadow-indigo-100 border border-white/60 max-w-sm w-full relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+        <div className="text-center mb-8 mt-2">
+          <div className="bg-gradient-to-br from-indigo-600 to-violet-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-indigo-200 transform -rotate-6">
+            <DollarSign className="text-white w-8 h-8" />
+          </div>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">SMART MANAGER</h1>
           <p className="text-slate-500 mt-2 text-sm">{loadingState ? "Secure Connection..." : (users.length === 0 ? "Create Admin Account" : "Member Login")}</p>
         </div>
-        {error && <div className="mb-4 bg-red-50 border border-red-200 p-3 rounded-lg text-left text-xs text-red-600 font-bold flex items-center gap-2"><AlertTriangle size={16}/>{error.message || "Connection failed"}</div>}
+        {error && <div className="mb-6 bg-rose-50 border border-rose-100 p-4 rounded-2xl text-left text-xs text-rose-600 font-bold flex items-center gap-3"><AlertTriangle size={16} className="shrink-0"/><span>{error.message || String(error)}</span></div>}
         {loadingState ? (
-           <div className="flex flex-col items-center justify-center py-8">
-             <Loader className="animate-spin text-blue-600 mb-2" size={32}/>
-             {showRetry && <button onClick={() => window.location.reload()} className="mt-4 text-xs font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors flex items-center gap-1"><RefreshCw size={12}/> Tap to Retry</button>}
+           <div className="flex flex-col items-center justify-center py-8 space-y-4">
+             <Loader className="animate-spin text-indigo-600" size={32}/>
+             {showRetry && <button onClick={() => window.location.reload()} className="text-xs font-bold text-indigo-600 bg-indigo-50 px-5 py-3 rounded-full hover:bg-indigo-100 flex items-center gap-2"><RefreshCw size={14}/> Reload App</button>}
            </div>
         ) : (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="relative">
-              <User className="absolute left-3 top-2.5 text-slate-400" size={18} />
-              <input type="text" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Username" value={loginForm.username} onChange={e => setLoginForm(prev => ({ ...prev, username: e.target.value }))} disabled={isSubmitting} autoCapitalize="none" />
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-4">
+              <div className="relative group">
+                <div className="absolute left-4 top-4 text-slate-400"><User size={18} /></div>
+                <input type="text" className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-semibold text-slate-700 placeholder:text-slate-400" placeholder="Username" value={loginForm.username} onChange={e => setLoginForm(prev => ({ ...prev, username: e.target.value }))} disabled={isSubmitting} autoCapitalize="none" />
+              </div>
+              <div className="relative group">
+                <div className="absolute left-4 top-4 text-slate-400"><Lock size={18} /></div>
+                <input type="password" className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-semibold text-slate-700 placeholder:text-slate-400" placeholder="Password" value={loginForm.password} onChange={e => setLoginForm(prev => ({ ...prev, password: e.target.value }))} disabled={isSubmitting} />
+              </div>
             </div>
-            <div className="relative">
-              <Lock className="absolute left-3 top-2.5 text-slate-400" size={18} />
-              <input type="password" className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Password" value={loginForm.password} onChange={e => setLoginForm(prev => ({ ...prev, password: e.target.value }))} disabled={isSubmitting} />
-            </div>
-            <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg flex justify-center items-center gap-2 transition-all shadow-md active:scale-95 disabled:opacity-70 disabled:scale-100">
-              {isSubmitting ? <Loader className="animate-spin" size={18} /> : "Login"}
+            <button type="submit" disabled={isSubmitting} className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold py-4 rounded-2xl flex justify-center items-center gap-3 transition-all shadow-xl shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-70 disabled:scale-100 mt-4">
+              {isSubmitting ? <Loader className="animate-spin" size={20} /> : <><span className="text-lg">Sign In</span> <ArrowLeft className="rotate-180" size={20}/></>}
             </button>
           </form>
         )}
@@ -242,24 +295,34 @@ const AdminDashboard = ({
   const [msgForm, setMsgForm] = useState({ title: '', description: '', recipients: [], imageUrl: '', eventDate: '' });
   const [chatMode, setChatMode] = useState('public');
   const [selectedPrivateUser, setSelectedPrivateUser] = useState(null);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
-  // Memoize heavy filters
   const pendingApprovals = useMemo(() => transactions.filter(t => t.status === 'pending'), [transactions]);
   const publicChats = useMemo(() => chatMessages.filter(m => m.type === 'public'), [chatMessages]);
   
   const privateChatUsers = useMemo(() => {
-    const userIds = new Set(
-      chatMessages.filter(m => m.type === 'private')
-      .map(m => m.senderId === appUser.id ? m.targetId : m.senderId)
-    );
+    if (!appUser) return [];
+    const userIds = new Set();
+    chatMessages.forEach(m => {
+      if (m.type === 'private') {
+         if (m.targetId === 'admin' || m.targetId === appUser.id) userIds.add(m.senderId);
+         if (m.senderId === appUser.id) userIds.add(m.targetId);
+      }
+    });
     return Array.from(userIds)
       .map(uid => users.find(u => u.id === uid))
       .filter(u => u && u.id !== 'admin' && u.id !== appUser.id);
-  }, [chatMessages, appUser.id, users]);
+  }, [chatMessages, appUser, users]);
   
-  const activePrivateChats = selectedPrivateUser 
-    ? chatMessages.filter(m => m.type === 'private' && (m.senderId === selectedPrivateUser.id || m.targetId === selectedPrivateUser.id)) 
-    : [];
+  const activePrivateChats = useMemo(() => {
+      if (!selectedPrivateUser) return [];
+      return chatMessages.filter(m => 
+        m.type === 'private' && (
+          (m.senderId === selectedPrivateUser.id && (m.targetId === 'admin' || m.targetId === appUser.id)) ||
+          (m.senderId === appUser.id && m.targetId === selectedPrivateUser.id)
+        )
+      );
+  }, [chatMessages, selectedPrivateUser, appUser]);
 
   const handleSendChat = (text) => {
     if (chatMode === 'public') sendChatMessage({ text, type: 'public' });
@@ -270,6 +333,14 @@ const AdminDashboard = ({
     const file = e.target.files[0];
     if (!file || file.size > 5 * 1024 * 1024) return alert("File too big");
     try { const url = await compressImage(file); setMsgForm(prev => ({ ...prev, imageUrl: url })); } catch (e) { alert("Error"); }
+  };
+
+  const handleAIGenerate = async () => {
+    if (!msgForm.title) return alert("Please enter Title");
+    setIsGeneratingAI(true);
+    const text = await callGemini(`Write short invitation: ${msgForm.title}`);
+    setMsgForm(prev => ({ ...prev, description: text }));
+    setIsGeneratingAI(false);
   };
 
   const toggleRecipient = (userId) => {
@@ -283,10 +354,10 @@ const AdminDashboard = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-20">
-      <div className="bg-slate-900 text-white p-6 rounded-2xl mb-8 shadow-xl">
+    <div className="max-w-6xl mx-auto pb-20 px-4 pt-6">
+      <div className="bg-slate-900 text-white p-6 rounded-[2rem] mb-8 shadow-2xl shadow-slate-500/20 border border-slate-800">
         <div className="flex justify-between mb-6">
-          <div className="flex items-center gap-3"><ShieldCheck className="text-blue-400 w-8 h-8" /><div><h2 className="text-xl font-bold">Admin</h2><p className="text-sm opacity-70">Smart Manager</p></div></div>
+          <div className="flex items-center gap-3"><ShieldCheck className="text-indigo-400 w-8 h-8" /><div><h2 className="text-xl font-bold">Admin</h2><p className="text-sm opacity-70">Smart Manager</p></div></div>
           <button onClick={handleLogout}><LogOut size={20} /></button>
         </div>
         <div className="flex gap-4 border-b border-slate-700 pb-1 overflow-x-auto text-sm no-scrollbar">
@@ -301,7 +372,7 @@ const AdminDashboard = ({
            {pendingApprovals.length === 0 ? <p className="text-center py-10 text-slate-400 bg-white rounded-xl border border-slate-200">No pending approvals.</p> : pendingApprovals.map(tx => (
               <div key={tx.id} className="bg-white p-4 rounded-xl border-l-4 border-yellow-400 shadow-sm flex justify-between items-center animate-in fade-in">
                  <div><p className="font-bold">{users.find(u=>u.id===tx.userId)?.name}</p><p className="text-xs text-slate-500">{tx.category} Payment</p></div>
-                 <div className="flex gap-2 items-center"><span className="font-bold text-lg">₹{tx.amount}</span><button onClick={() => handleApproval(tx.id, false)} className="p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200"><X size={18}/></button><button onClick={() => handleApproval(tx.id, true)} className="p-2 bg-green-100 text-green-600 rounded-full hover:bg-green-200"><CheckCircle size={18}/></button></div>
+                 <div className="flex gap-2 items-center"><span className="font-bold text-lg">₹{safeNumber(tx.amount).toFixed(2)}</span><button onClick={() => handleApproval(tx.id, false)} className="p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200"><X size={18}/></button><button onClick={() => handleApproval(tx.id, true)} className="p-2 bg-green-100 text-green-600 rounded-full hover:bg-green-200"><CheckCircle size={18}/></button></div>
               </div>
            ))}
         </div>
@@ -329,8 +400,8 @@ const AdminDashboard = ({
                 <div className="flex justify-between items-center">
                   <div className="flex gap-3 items-center"><div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center font-bold text-slate-600">{m.name ? m.name.charAt(0) : '?'}</div><div><p className="font-bold">{m.name}</p><p className="text-xs text-slate-500">@{m.username}</p></div></div>
                   <div className="text-right text-xs">
-                    <div className="text-blue-600 font-bold">Main: ₹{getMemberBalance(m.id, 'main')}</div>
-                    <div className="text-orange-600 font-bold">Groc: ₹{getMemberBalance(m.id, 'grocery')}</div>
+                    <div className="text-blue-600 font-bold">Main: ₹{safeNumber(getMemberBalance(m.id, 'main')).toFixed(2)}</div>
+                    <div className="text-orange-600 font-bold">Groc: ₹{safeNumber(getMemberBalance(m.id, 'grocery')).toFixed(2)}</div>
                   </div>
                 </div>
               </div>
@@ -361,10 +432,11 @@ const AdminDashboard = ({
                   <div className="w-6 h-6 rounded-full bg-slate-300 flex items-center justify-center text-[10px] font-bold">{u.name ? u.name[0] : '?'}</div> {u.name}
                 </div>
               ))}
+              {chatMode === 'private' && privateChatUsers.length === 0 && <p className="text-center text-xs text-slate-400 mt-4">No chats yet</p>}
            </div>
            <div className="flex-1 p-0 flex flex-col bg-white">
               <div className="p-3 font-bold border-b bg-slate-50 text-slate-700 flex items-center gap-2">
-                {chatMode === 'public' ? <><Users size={16}/> Public Group</> : (selectedPrivateUser ? <><User size={16}/> {selectedPrivateUser.name}</> : "Select a user")}
+                {chatMode === 'public' ? <><User size={16}/> Public Group</> : (selectedPrivateUser ? <><User size={16}/> {selectedPrivateUser.name}</> : "Select a user")}
               </div>
               <div className="flex-1 overflow-hidden p-2">
                 <ChatComponent messages={chatMode === 'public' ? publicChats : activePrivateChats} currentUserId={appUser.id} onSend={handleSendChat} placeholder="Type a message..." />
@@ -382,6 +454,10 @@ const MemberDashboard = ({ appUser, handleLogout, getMemberBalance, transactions
   const [isPaying, setIsPaying] = useState(false);
   const [amount, setAmount] = useState('');
   const [chatMode, setChatMode] = useState('public');
+  const [isChangingPass, setIsChangingPass] = useState(false);
+  const [newPass, setNewPass] = useState('');
+  const [isReporting, setIsReporting] = useState(false);
+  const [payAmount, setPayAmount] = useState('');
 
   const balance = getMemberBalance(appUser.id, activeList);
   const isSavings = balance < 0;
@@ -395,54 +471,77 @@ const MemberDashboard = ({ appUser, handleLogout, getMemberBalance, transactions
 
   const handlePay = (e) => { 
     e.preventDefault(); 
-    if(!amount || amount <= 0) return alert("Invalid amount");
+    const payVal = parseFloat(amount);
+    if(!amount || isNaN(payVal) || payVal <= 0) return alert("Invalid amount");
     reportPayment(amount, activeList, true); 
-    window.location.href = `upi://pay?pa=${upiId}&pn=SmartManager&am=${parseFloat(amount).toFixed(2)}&cu=INR`;
+    window.location.href = `upi://pay?pa=${upiId}&pn=SmartManager&am=${payVal.toFixed(2)}&cu=INR`;
     setIsPaying(false); 
     setAmount(''); 
   };
 
-  const handleReportPayment = (e) => { e.preventDefault(); reportPayment(amount, activeList); setIsPaying(false); setAmount(''); };
-  const handleSubmitPass = (e) => { e.preventDefault(); changePassword(amount); setIsPaying(false); };
+  const handleReportPayment = (e) => { e.preventDefault(); reportPayment(payAmount, activeList); setIsReporting(false); setPayAmount(''); };
+  const handleSubmitPass = (e) => { e.preventDefault(); changePassword(newPass); setIsChangingPass(false); };
 
   const isBirthdayToday = () => { if (!appUser.birthday) return false; const today = new Date(); const dob = new Date(appUser.birthday); return today.getDate() === dob.getDate() && today.getMonth() === dob.getMonth(); };
 
   return (
-    <div className="max-w-md mx-auto pb-24">
-      <div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold">My Dashboard</h2><button onClick={handleLogout}><LogOut className="text-slate-400"/></button></div>
-      <div className="flex border-b mb-4"><button onClick={() => setActiveTab('dashboard')} className={`flex-1 pb-2 font-bold ${activeTab==='dashboard'?'text-blue-600 border-b-2 border-blue-600':'text-slate-400'}`}>Overview</button><button onClick={() => setActiveTab('chat')} className={`flex-1 pb-2 font-bold ${activeTab==='chat'?'text-blue-600 border-b-2 border-blue-600':'text-slate-400'}`}>Community</button></div>
+    <div className="max-w-md mx-auto pb-24 px-6 pt-8">
+      <div className="flex justify-between items-center mb-8">
+         <div><h2 className="text-3xl font-black text-slate-800">Dashboard</h2><p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Welcome, {appUser.name.split(' ')[0]}</p></div>
+         <div className="flex gap-3"><button onClick={() => setIsChangingPass(true)} className="p-3.5 bg-white border border-slate-100 text-slate-400 rounded-2xl hover:text-indigo-600 transition-all shadow-sm"><Key size={20} /></button><button onClick={handleLogout} className="p-3.5 bg-white border border-slate-100 text-slate-400 rounded-2xl hover:text-rose-600 transition-all shadow-sm"><LogOut size={20} /></button></div>
+      </div>
+
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-8 relative shadow-inner">
+         <button onClick={() => setActiveTab('dashboard')} className={`flex-1 py-3 font-bold text-sm rounded-xl transition-colors ${activeTab==='dashboard'?'bg-white shadow-sm text-slate-800':'text-slate-400'}`}>Overview</button>
+         <button onClick={() => setActiveTab('chat')} className={`flex-1 py-3 font-bold text-sm rounded-xl transition-colors ${activeTab==='chat'?'bg-white shadow-sm text-slate-800':'text-slate-400'}`}>Community</button>
+      </div>
 
       {activeTab === 'dashboard' && (
-        <>
-          {isBirthdayToday() && <div className="mb-6 bg-pink-500 p-6 rounded-2xl shadow-xl text-white text-center animate-pulse"><Cake size={48} className="mx-auto mb-2"/><h2 className="text-2xl font-bold">Happy Birthday! 🎉</h2></div>}
-          {myMessages.length > 0 && <div className="mb-6 space-y-4">{myMessages.map(msg => <InvitationCard key={msg.id} msg={msg} onDiscuss={() => {setActiveTab('chat'); setChatMode('public');}} />)}</div>}
-          <div className="flex bg-slate-200 p-1 rounded-xl mb-4"><button onClick={() => setActiveList('main')} className={`flex-1 py-2 rounded-lg text-sm font-bold ${activeList==='main'?'bg-white text-blue-700 shadow':''}`}>Main</button><button onClick={() => setActiveList('grocery')} className={`flex-1 py-2 rounded-lg text-sm font-bold ${activeList==='grocery'?'bg-white text-orange-600 shadow':''}`}>Grocery</button></div>
-          <div className={`p-6 rounded-2xl shadow-lg mb-6 text-white transition-colors duration-500 ${isSavings ? 'bg-emerald-600' : (activeList==='main'?'bg-blue-600':'bg-orange-600')}`}>
-             <p className="opacity-80 text-sm">Balance</p><h1 className="text-4xl font-bold">₹{Math.abs(balance).toFixed(2)}</h1><p className="text-sm opacity-80">{balance < 0 ? 'Savings' : 'Due'}</p>
-             {balance > 0 && (activeList === 'main' || isGroceryEnabled) && <button onClick={() => {setAmount(currentDue); setIsPaying('app');}} className="mt-4 bg-white text-slate-900 px-4 py-2 rounded font-bold w-full flex items-center justify-center gap-2 hover:bg-opacity-90"><Smartphone size={16}/> Pay Now</button>}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {isBirthdayToday() && <div className="mb-8 bg-gradient-to-r from-pink-500 to-rose-500 p-8 rounded-[2rem] shadow-xl shadow-pink-500/30 text-white text-center animate-pulse"><Cake size={56} className="mx-auto mb-3"/><h2 className="text-3xl font-black">Happy Birthday! 🎉</h2></div>}
+          
+          {myMessages.length > 0 && <div className="mb-8 space-y-6">{myMessages.map(msg => <InvitationCard key={msg.id} msg={msg} onDiscuss={() => {setActiveTab('chat'); setChatMode('public');}} />)}</div>}
+          
+          <div className="flex gap-4 mb-5 overflow-x-auto pb-2 no-scrollbar">
+             <button onClick={() => setActiveList('main')} className={`flex-1 py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all border ${activeList==='main'?'bg-indigo-600 border-indigo-600 text-white shadow-lg':'bg-white border-slate-100 text-slate-500 hover:bg-slate-50'}`}><Briefcase size={18}/> Main</button>
+             <button onClick={() => setActiveList('grocery')} className={`flex-1 py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all border ${activeList==='grocery'?'bg-orange-500 border-orange-500 text-white shadow-lg':'bg-white border-slate-100 text-slate-500 hover:bg-slate-50'}`}><ShoppingCart size={18}/> Grocery</button>
           </div>
+
+          <div className={`p-8 rounded-[2.5rem] shadow-2xl mb-10 text-white transition-all duration-500 relative overflow-hidden ${isSavings ? 'bg-gradient-to-br from-emerald-500 to-teal-700 shadow-emerald-200' : (activeList==='main'?'bg-gradient-to-br from-indigo-600 to-purple-800 shadow-indigo-200':'bg-gradient-to-br from-orange-500 to-red-600 shadow-orange-200')}`}>
+             <div className="relative z-10">
+                <p className="opacity-80 text-sm font-medium mb-1">{isSavings ? 'Total Savings' : 'Current Due'}</p>
+                <h1 className="text-5xl font-black mb-8 tracking-tighter">₹{Math.abs(balance).toFixed(2)}</h1>
+                {balance > 0 && (activeList === 'main' || isGroceryEnabled) && <button onClick={() => {setAmount(currentDue); setIsPaying('app');}} className="w-full bg-white text-slate-900 py-4 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 transition-all shadow-lg"><Smartphone size={20}/> Pay Now</button>}
+                {isSavings && <div className="bg-white/20 backdrop-blur-md p-3 rounded-xl text-center font-medium text-sm">You are in credit!</div>}
+             </div>
+          </div>
+
+          {/* Payment Modal */}
           {isPaying && (
             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl animate-in zoom-in">
-                  <h3 className="font-bold mb-2 text-lg">{isPaying === 'app' ? "Pay via UPI" : (isPaying === 'manual' ? "Manual Report" : "Change Password")}</h3>
-                  {isPaying !== 'pass' && <p className="text-sm text-slate-500 mb-4">{isPaying === 'app' ? "Enter amount to open your UPI app." : "Tell admin you paid cash."}</p>}
-                  <form onSubmit={isPaying === 'app' ? handlePay : (isPaying === 'manual' ? handleReportPayment : handleSubmitPass)}>
-                    <input type={isPaying === 'pass' ? 'text' : 'number'} value={amount} onChange={e=>setAmount(e.target.value)} className="border p-3 w-full rounded-lg mb-4 text-lg font-medium" placeholder={isPaying==='pass'?"New Password":"₹ Amount"} autoFocus />
-                    <div className="flex gap-2"><button type="button" onClick={()=>setIsPaying(false)} className="flex-1 bg-slate-100 py-3 rounded-lg font-bold text-slate-600">Cancel</button><button type="submit" className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold">{isPaying === 'app' ? "Pay" : "Submit"}</button></div>
+              <div className="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl animate-in zoom-in">
+                  <h3 className="font-bold mb-2 text-xl">Pay via UPI</h3>
+                  <p className="text-sm text-slate-500 mb-4">Enter amount to launch your UPI app.</p>
+                  <form onSubmit={handlePay}>
+                    <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} className="w-full border p-4 rounded-xl mb-4 text-xl font-bold" placeholder="Amount" autoFocus />
+                    <div className="flex gap-2"><button type="button" onClick={()=>setIsPaying(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold text-slate-600">Cancel</button><button type="submit" className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold">Pay</button></div>
                   </form>
-                  {isPaying === 'app' && <button onClick={()=>{setIsPaying('manual'); setAmount('');}} className="w-full mt-4 text-xs text-blue-600 underline">Paid cash? Manual Report</button>}
+                  <button onClick={()=>{setIsPaying(false); setIsReporting(true); setPayAmount('');}} className="w-full mt-4 text-xs text-blue-600 underline">Paid cash? Manual Report</button>
               </div>
             </div>
           )}
+          {isReporting && <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"><div className="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl"><h3 className="font-bold mb-2 text-xl">Manual Report</h3><input type="number" value={payAmount} onChange={e=>setPayAmount(e.target.value)} className="w-full border p-4 rounded-xl mb-4 text-xl font-bold" placeholder="Amount" /><div className="flex gap-2"><button onClick={()=>setIsReporting(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold text-slate-600">Cancel</button><button onClick={handleReportPayment} className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold">Submit</button></div></div></div>}
           
-          <div className="flex justify-between items-center mb-2"><h3 className="font-bold text-slate-800 flex items-center gap-2"><History size={18}/> History</h3><button onClick={()=>{setIsPaying('pass'); setAmount('');}} className="text-xs text-slate-400 flex items-center gap-1"><Key size={12}/> Change Pass</button></div>
-          <div className="space-y-2">{myTx.length > 0 ? myTx.map(tx => <TransactionItem key={tx.id} tx={tx} />) : <p className="text-center py-8 text-slate-400">No transactions.</p>}</div>
-        </>
+          {isChangingPass && <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"><div className="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl"><h3 className="font-bold mb-4 text-xl">Change Password</h3><input type="text" value={newPass} onChange={e=>setNewPass(e.target.value)} className="w-full border p-4 rounded-xl mb-4" placeholder="New Password" /><div className="flex gap-2"><button onClick={()=>setIsChangingPass(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold text-slate-600">Cancel</button><button onClick={handleSubmitPass} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold">Save</button></div></div></div>}
+          
+          <div className="flex justify-between items-center mb-2"><h3 className="font-bold text-slate-800 flex items-center gap-2"><History size={18}/> History</h3><button onClick={()=>{setIsChangingPass(true); setNewPass('');}} className="text-xs text-slate-400 flex items-center gap-1"><Key size={12}/> Change Pass</button></div>
+          <div className="space-y-3 pb-10">{myTx.length > 0 ? myTx.map(tx => <TransactionItem key={tx.id} tx={tx} />) : <p className="text-center py-8 text-slate-400">No transactions.</p>}</div>
+        </div>
       )}
 
       {activeTab === 'chat' && (
         <div className="h-[70vh] flex flex-col">
-           <div className="flex bg-slate-100 p-1 rounded mb-2"><button onClick={()=>setChatMode('public')} className={`flex-1 py-1 text-xs font-bold rounded ${chatMode==='public'?'bg-white shadow':''}`}>Public Group</button><button onClick={()=>setChatMode('private')} className={`flex-1 py-1 text-xs font-bold rounded ${chatMode==='private'?'bg-white shadow':''}`}>Admin Support</button></div>
+           <div className="flex bg-slate-100 p-1 rounded-xl mb-4"><button onClick={()=>setChatMode('public')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${chatMode==='public'?'bg-white shadow text-indigo-600':'text-slate-500'}`}>Public Group</button><button onClick={()=>setChatMode('private')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${chatMode==='private'?'bg-white shadow text-indigo-600':'text-slate-500'}`}>Admin Support</button></div>
            <ChatComponent messages={chatMode==='public'?publicChats:privateChats} currentUserId={appUser.id} onSend={(txt) => sendChatMessage({ text: txt, type: chatMode, ...(chatMode==='private'?{targetId:'admin'}:{}) })} placeholder="Type a message..." />
         </div>
       )}
@@ -453,25 +552,50 @@ const MemberDashboard = ({ appUser, handleLogout, getMemberBalance, transactions
 const MemberDetailView = ({ users, selectedMemberId, transactions, appUser, transactionForm, setTransactionForm, addTransaction, setSelectedMemberId, setView, getMemberBalance, deleteTransaction }) => {
   const member = users.find(u => u.id === selectedMemberId);
   const [list, setList] = useState('main');
+  const [showReminder, setShowReminder] = useState(false);
+  const [reminderText, setReminderText] = useState('');
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  
+  // Safe number helper
+  const safeNumber = (val) => {
+    const num = parseFloat(val);
+    return isNaN(num) ? 0 : num;
+  };
+
   if (!member) return null;
   const filteredTx = transactions.filter(t => t.userId === member.id && (t.category||'main')===list);
+  const currentDue = getMemberBalance(member.id, list);
+
+  const generateReminder = async () => { setIsGeneratingAI(true); setShowReminder(true); const text = await callGemini(`Reminder for ${member.name}: Pay ₹${Math.abs(currentDue)} ${list} due.`); setReminderText(text); setIsGeneratingAI(false); };
+
   return (
-    <div className="max-w-2xl mx-auto pb-20">
-      <button onClick={() => { setSelectedMemberId(null); setView('dashboard'); }} className="mb-4 flex items-center gap-2 text-slate-500"><ArrowLeft size={20} /> Back</button>
-      <div className="bg-white p-6 rounded-xl shadow-sm border mb-6">
-         <h2 className="text-2xl font-bold">{member.name}</h2><p className="text-slate-500 text-sm">@{member.username}</p>
-         <div className="flex bg-slate-100 p-1 rounded mt-4 mb-4"><button onClick={() => setList('main')} className={`flex-1 py-1 text-sm font-bold rounded ${list==='main'?'bg-white shadow':''}`}>Main</button><button onClick={() => setList('grocery')} className={`flex-1 py-1 text-sm font-bold rounded ${list==='grocery'?'bg-white shadow':''}`}>Grocery</button></div>
-         <p className="text-2xl font-bold text-right mb-4">₹{Math.abs(getMemberBalance(member.id, list)).toFixed(2)} <span className="text-sm font-normal text-slate-500">{getMemberBalance(member.id, list) < 0 ? 'Savings' : 'Due'}</span></p>
+    <div className="max-w-2xl mx-auto pb-20 p-4 pt-6">
+      <button onClick={() => { setSelectedMemberId(null); setView('dashboard'); }} className="mb-6 flex items-center gap-2 text-slate-500 font-bold bg-white px-4 py-2 rounded-full shadow-sm w-fit"><ArrowLeft size={20} /> Back</button>
+      
+      <div className="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-100 mb-8">
+         <div className="flex justify-between items-start mb-6"><div><h2 className="text-3xl font-bold text-slate-800">{member.name}</h2><p className="text-slate-500">@{member.username}</p></div>{appUser.role === 'admin' && currentDue > 0 && <button onClick={generateReminder} className="bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg text-xs font-bold flex gap-1"><Sparkles size={12}/> Draft</button>}</div>
+         
+         {showReminder && (
+            <div className="mt-4 bg-purple-50 border border-purple-100 p-4 rounded-2xl animate-in fade-in">
+               <div className="flex justify-between items-center mb-2"><span className="text-xs font-bold text-purple-800">AI Draft</span><button onClick={() => setShowReminder(false)}><X size={14} className="text-purple-400"/></button></div>
+               {isGeneratingAI ? <div className="flex items-center gap-2 text-xs text-purple-600"><Loader className="animate-spin" size={12}/> Generating...</div> : (
+                 <div><textarea className="w-full p-3 text-sm border-none rounded-xl bg-white/50 text-slate-700 h-20 mb-2 outline-none" value={reminderText} onChange={(e)=>setReminderText(e.target.value)} /><button onClick={() => {navigator.clipboard.writeText(reminderText); alert("Copied!");}} className="text-xs bg-white border border-purple-100 px-3 py-1.5 rounded-lg flex items-center gap-1 text-purple-700 font-bold hover:bg-purple-50 shadow-sm">Copy</button></div>
+               )}
+            </div>
+         )}
+
+         <div className="flex bg-slate-50 p-1.5 rounded-xl mb-6"><button onClick={() => setList('main')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${list==='main'?'bg-white text-indigo-600 shadow-md':'text-slate-500'}`}>Main</button><button onClick={() => setList('grocery')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${list==='grocery'?'bg-white text-orange-600 shadow-md':'text-slate-500'}`}>Grocery</button></div>
+         <p className="text-2xl font-bold text-right mb-4">₹{Math.abs(currentDue).toFixed(2)}</p>
          {appUser.role === 'admin' && (
-           <form onSubmit={(e) => addTransaction(e, list)} className="flex gap-2"><input type="number" step="0.01" className="border p-2 rounded flex-1" placeholder="Amount" value={transactionForm.amount} onChange={e=>setTransactionForm(prev=>({...prev, amount:e.target.value}))} /><input className="border p-2 rounded flex-1" placeholder="Desc" value={transactionForm.description} onChange={e=>setTransactionForm(prev=>({...prev, description:e.target.value}))} /><select className="border p-2 rounded" value={transactionForm.type} onChange={e=>setTransactionForm(prev=>({...prev, type:e.target.value}))}><option value="due">Due</option><option value="payment">Pay</option></select><button className="bg-blue-600 text-white px-4 rounded font-bold">Add</button></form>
+           <form onSubmit={(e) => addTransaction(e, list)} className="flex gap-3"><input type="number" step="0.01" className="bg-slate-50 p-4 rounded-2xl flex-1 font-bold" placeholder="Amount" value={transactionForm.amount} onChange={e=>setTransactionForm(prev=>({...prev, amount:e.target.value}))} /><select className="bg-slate-50 p-4 rounded-2xl font-bold" value={transactionForm.type} onChange={e=>setTransactionForm(prev=>({...prev, type:e.target.value}))}><option value="due">Due</option><option value="payment">Pay</option></select><button className="bg-indigo-600 text-white px-6 rounded-2xl font-bold">Add</button></form>
          )}
       </div>
-      <div className="space-y-2">{filteredTx.length > 0 ? filteredTx.map(tx => <TransactionItem key={tx.id} tx={tx} onDelete={deleteTransaction} isAdmin={appUser.role === 'admin'} />) : <p className="text-center text-slate-400">No data</p>}</div>
+      <div className="space-y-3">{filteredTx.length > 0 ? filteredTx.map(tx => <TransactionItem key={tx.id} tx={tx} onDelete={deleteTransaction} isAdmin={appUser.role === 'admin'} />) : <div className="text-center py-16 bg-white rounded-[2rem] border border-dashed border-slate-200 text-slate-400 font-medium">No transactions found.</div>}</div>
     </div>
   );
 };
 
-// --- APP COMPONENT ---
+// --- APP ---
 const App = () => {
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [appUser, setAppUser] = useState(null);
@@ -492,20 +616,19 @@ const App = () => {
   const [newMemberForm, setNewMemberForm] = useState({ name: '', password: '', birthday: '' });
   const [transactionForm, setTransactionForm] = useState({ amount: '', description: '', type: 'due' });
 
+  // Safe number helper
+  const safeNumber = (val) => {
+    const num = parseFloat(val);
+    return isNaN(num) ? 0 : num;
+  };
+
   useEffect(() => {
     window.addEventListener('online', () => setIsOnline(true));
     window.addEventListener('offline', () => setIsOnline(false));
     if (!firebaseConfig) { setError({ message: "Config Missing" }); setLoading(false); return; }
-    
-    const init = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
-        else await signInAnonymously(auth);
-      } catch (e) { setError(e); setLoading(false); }
-    };
+    const init = async () => { try { if (typeof __initial_auth_token !== 'undefined') await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth); } catch (e) { setError(e); setLoading(false); } };
     init();
-    const unsubAuth = onAuthStateChanged(auth, u => { setFirebaseUser(u); if (!u) setLoading(false); });
-    return () => unsubAuth();
+    return onAuthStateChanged(auth, u => { setFirebaseUser(u); if (!u) setLoading(false); });
   }, []);
 
   useEffect(() => {
@@ -536,7 +659,7 @@ const App = () => {
   const handleApproval = (id, approved) => approved ? updateDoc(doc(db, 'artifacts', appId, 'public', 'data', TRANSACTIONS_COLLECTION, id), { status: 'approved' }) : deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', TRANSACTIONS_COLLECTION, id));
   const saveUpiId = () => setDoc(doc(db, 'artifacts', appId, 'public', 'data', SETTINGS_COLLECTION, 'config'), { upiId, isGroceryEnabled }, { merge: true }).then(()=>alert("Saved"));
   const toggleGroceryPayment = () => { setIsGroceryEnabled(!isGroceryEnabled); setDoc(doc(db, 'artifacts', appId, 'public', 'data', SETTINGS_COLLECTION, 'config'), { isGroceryEnabled: !isGroceryEnabled }, { merge: true }); };
-  const getMemberBalance = (uid, cat) => transactions.filter(t => t.userId === uid && (t.category||'main')===cat && t.status==='approved').reduce((acc, t) => t.type==='due' ? acc+t.amount : acc-t.amount, 0);
+  const getMemberBalance = (uid, cat) => transactions.filter(t => t.userId === uid && (t.category||'main')===cat && t.status==='approved').reduce((acc, t) => t.type==='due' ? acc+safeNumber(t.amount) : acc-safeNumber(t.amount), 0);
   const sendMessage = (data) => addDoc(collection(db, 'artifacts', appId, 'public', 'data', MESSAGES_COLLECTION), { ...data, createdAt: serverTimestamp(), sender: appUser.username });
   const sendChatMessage = (data) => addDoc(collection(db, 'artifacts', appId, 'public', 'data', CHATS_COLLECTION), { ...data, senderId: appUser.id, senderName: appUser.name, createdAt: serverTimestamp() });
   const changePassword = (pass) => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', USERS_COLLECTION, appUser.id), { password: pass }).then(()=>alert("Changed"));
