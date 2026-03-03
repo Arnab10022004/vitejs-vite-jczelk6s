@@ -1168,7 +1168,7 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
   const filteredTx = useMemo(() => filterCat==='all'?transactions:transactions.filter(t=>(t.category||'main')===filterCat), [transactions, filterCat]);
 
   const doSendChat = t => { if(chatMode==='public') sendChat({text:t,type:'public'}); else if(selPriv) sendChat({text:t,type:'private',targetId:selPriv.id}); };
-  const handleImg = async e => { const f=e.target.files[0]; if(!f||f.size>5e6) return; try { setMsgForm(p=>({...p,imageUrl:await compressImg(f)})); } catch {} };
+ const handleImg = async e => { const f=e.target.files[0]; if(!f||f.size>5e6) return; try { const url=await compressImg(f); setMsgForm(p=>({...p,imageUrl:url})); } catch {} };
   const doAI = async () => { if(!msgForm.title) return; setAiLoading(true); const txt=await callGemini(`Write an engaging, warm event invitation for: "${msgForm.title}". Under 100 words, use emojis, friendly tone.`); setMsgForm(p=>({...p,description:txt})); setAiLoading(false); };
   const toggleRecip = id => setMsgForm(p=>({...p,recipients:p.recipients.includes(id)?p.recipients.filter(x=>x!==id):[...p.recipients,id]}));
   const selectAll = () => { const ids=members.map(u=>u.id); setMsgForm(p=>({...p,recipients:p.recipients.length===ids.length?[]:ids})); };
