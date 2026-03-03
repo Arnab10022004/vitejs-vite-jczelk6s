@@ -1,21 +1,10 @@
-/* Smart Manager — Global Reset */
+/* Smart Manager v3 — reset only, all styles injected by App.jsx */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 html, body, #root {
-  min-height: 100vh;
-  width: 100%;
-  background: #03040f !important;
-  color: #f1f5f9 !important;
+  min-height: 100vh; width: 100%;
+  background: #04050e !important;
+  color: #f0f4ff !important;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   color-scheme: dark;
 }
-
-body {
-  margin: 0 !important;
-  display: block !important;
-  place-items: unset !important;
-}
-
-button { cursor: pointer; }
-input, textarea, select { color: inherit; }
+body { margin: 0 !important; display: block !important; }
