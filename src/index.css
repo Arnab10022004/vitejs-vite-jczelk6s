@@ -1,7 +1,8 @@
-/* Smart Manager v3 — reset only, all styles injected by App.jsx */
+/* Smart Manager — base reset only; all design tokens injected by App.jsx */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root {
-  min-height: 100vh; width: 100%;
+  min-height: 100vh;
+  width: 100%;
   background: #04050e !important;
   color: #f0f4ff !important;
   -webkit-font-smoothing: antialiased;
