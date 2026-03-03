@@ -32,10 +32,7 @@ const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 try { getAnalytics(fbApp); } catch {}
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-// BUG FIX: Use proper guards for canvas-injected globals
 const APP_ID = (typeof __app_id !== 'undefined' && __app_id) ? __app_id : 'default-app-id';
-// BUG FIX: Corrected Gemini model name (was non-existent gemini-2.5-flash-preview-09-2025)
 const GEMINI_KEY = "AIzaSyArZC6itvjovGkS6FDfZRruk3sH2c5_Prc";
 const GEMINI_MODEL = 'gemini-1.5-flash';
 
@@ -43,7 +40,6 @@ const COL = { USERS: 'dues_app_users', TX: 'dues_app_transactions', SETTINGS: 'd
 const col  = n  => collection(db, 'artifacts', APP_ID, 'public', 'data', n);
 const dRef = (n, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', n, id);
 
-// ── Utils ─────────────────────────────────────────────────────────────────────
 const safeNum = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 const fmtDate = v => {
   if (!v) return 'N/A';
@@ -54,7 +50,6 @@ const fmtTime = v => {
   if (!v?.seconds) return '';
   return new Date(v.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
-// BUG FIX: corrected Gemini API URL with fixed model name
 const callGemini = async p => {
   try {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`, {
@@ -78,7 +73,6 @@ const compressImg = file => new Promise(res => {
     };
   };
 });
-// BUG FIX: safer username normalization that handles special chars better
 const toUsername = name => name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
 // ── Global CSS ─────────────────────────────────────────────────────────────────
@@ -189,6 +183,22 @@ button { cursor:pointer; }
   from { transform:scale(0); opacity:0.5; }
   to   { transform:scale(2.5); opacity:0; }
 }
+@keyframes floatY {
+  0%,100% { transform:translateY(0px); }
+  50%     { transform:translateY(-8px); }
+}
+@keyframes authCardIn {
+  from { opacity:0; transform:translateY(32px) scale(0.96); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes topBarSlide {
+  from { transform:scaleX(0); opacity:0; }
+  to   { transform:scaleX(1); opacity:1; }
+}
+@keyframes inputFocusGlow {
+  from { box-shadow:0 0 0 0 rgba(124,109,250,0.4); }
+  to   { box-shadow:0 0 0 4px rgba(124,109,250,0.15); }
+}
 
 /* ── animation helpers ── */
 .fu  { animation:fadeUp  0.44s cubic-bezier(.16,1,.3,1) both; }
@@ -249,31 +259,37 @@ button { cursor:pointer; }
   pointer-events:none;
 }
 
-/* ── input ── */
+/* ── PREMIUM INPUT ── */
 .inp {
   width:100%;
-  background:rgba(255,255,255,0.06);
-  border:1px solid rgba(255,255,255,0.13);
-  border-radius:var(--rad-sm);
+  background:rgba(255,255,255,0.055);
+  border:1.5px solid rgba(255,255,255,0.1);
+  border-radius:14px;
   color:#ffffff;
   padding:14px 16px;
   font-size:14.5px;
   font-family:var(--font);
   font-weight:500;
   outline:none;
-  transition:border-color .2s, background .2s, box-shadow .2s;
+  transition:border-color .22s, background .22s, box-shadow .22s;
+  letter-spacing:0.01em;
+}
+.inp:hover {
+  border-color:rgba(255,255,255,0.2);
+  background:rgba(255,255,255,0.07);
 }
 .inp:focus {
-  border-color:rgba(124,109,250,0.75);
-  background:rgba(124,109,250,0.09);
-  box-shadow:0 0 0 3.5px rgba(124,109,250,0.18), 0 0 28px rgba(124,109,250,0.12);
+  border-color:rgba(124,109,250,0.8);
+  background:rgba(124,109,250,0.07);
+  box-shadow:0 0 0 4px rgba(124,109,250,0.12), 0 0 32px rgba(124,109,250,0.08);
   color:#ffffff;
 }
-.inp::placeholder { color:rgba(255,255,255,0.3); font-weight:400; }
+.inp::placeholder { color:rgba(255,255,255,0.28); font-weight:400; }
 .inp-icon   { padding-left:46px; }
 .inp-icon-r { padding-right:46px; }
 .field-wrap { position:relative; width:100%; }
-.fi-l { position:absolute; left:15px; top:50%; transform:translateY(-50%); pointer-events:none; color:rgba(255,255,255,0.35); }
+.fi-l { position:absolute; left:15px; top:50%; transform:translateY(-50%); pointer-events:none; color:rgba(255,255,255,0.3); transition:color .2s; }
+.field-wrap:focus-within .fi-l { color:rgba(124,109,250,0.8); }
 .fi-r { position:absolute; right:14px; top:50%; transform:translateY(-50%); }
 
 /* ── buttons ── */
@@ -477,73 +493,306 @@ button { cursor:pointer; }
 }
 .fp-step-dot { width:8px; height:8px; border-radius:50%; transition:all .3s cubic-bezier(.16,1,.3,1); }
 
-/* ── auth page ── */
+/* ════════════════════════════════════════
+   ── PREMIUM AUTH PAGE ──
+   ════════════════════════════════════════ */
+
+/* Auth page wrapper */
+.auth-page {
+  min-height:100vh;
+  display:flex;
+  position:relative;
+  overflow:hidden;
+  background:#060510;
+}
+
+/* Glowing noise background */
+.auth-page::before {
+  content:'';
+  position:absolute; inset:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 50%, rgba(79,61,240,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 30%, rgba(0,212,255,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 40% at 60% 80%, rgba(240,107,255,0.05) 0%, transparent 50%);
+  pointer-events:none;
+}
+
+/* THE AUTH CARD — glass morphism + depth */
 .auth-card {
-  background:linear-gradient(160deg,rgba(16,12,38,0.99) 0%,rgba(8,6,22,0.99) 100%);
-  border:1px solid rgba(255,255,255,0.15);
-  border-radius:28px; padding:38px;
+  background:
+    linear-gradient(145deg,
+      rgba(20,15,50,0.96) 0%,
+      rgba(12,9,32,0.98) 40%,
+      rgba(8,6,22,0.99) 100%);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:28px;
+  padding:36px;
+  width:100%;
+  max-width:420px;
+  position:relative;
+  overflow:hidden;
   box-shadow:
-    0 0 0 1px rgba(124,109,250,0.1),
-    0 40px 80px rgba(0,0,0,0.88),
-    0 0 80px rgba(124,109,250,0.06),
-    inset 0 1px 0 rgba(255,255,255,0.1),
-    inset 0 -1px 0 rgba(0,0,0,0.5);
-  position:relative; overflow:hidden;
+    0 0 0 1px rgba(124,109,250,0.08),
+    0 40px 100px rgba(0,0,0,0.9),
+    0 0 80px rgba(124,109,250,0.04),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+  animation:authCardIn .55s cubic-bezier(.16,1,.3,1) both;
+  backdrop-filter:blur(40px);
+  -webkit-backdrop-filter:blur(40px);
 }
+
+/* Prismatic top edge */
 .auth-card::before {
-  content:''; position:absolute; top:0; left:0; right:0; height:2px;
-  background:linear-gradient(90deg,transparent 0%,rgba(124,109,250,1) 25%,rgba(0,212,255,0.9) 55%,rgba(240,107,255,0.8) 80%,transparent 100%);
-  box-shadow:0 0 24px rgba(124,109,250,0.7), 0 0 48px rgba(124,109,250,0.3);
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,
+    transparent 0%,
+    rgba(124,109,250,0.9) 20%,
+    rgba(0,212,255,1) 45%,
+    rgba(124,109,250,0.9) 65%,
+    rgba(240,107,255,0.7) 85%,
+    transparent 100%);
+  box-shadow:0 0 30px rgba(124,109,250,0.5), 0 0 60px rgba(0,212,255,0.2);
+  transform-origin:left;
+  animation:topBarSlide .7s cubic-bezier(.16,1,.3,1) .2s both;
 }
+
+/* Subtle inner glow */
 .auth-card::after {
-  content:''; position:absolute; top:0; left:0; right:0; bottom:0;
-  background:radial-gradient(ellipse at 50% 0%,rgba(124,109,250,0.09) 0%,transparent 60%);
-  pointer-events:none; border-radius:inherit;
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:200px;
+  background:radial-gradient(ellipse at 50% 0%, rgba(124,109,250,0.1) 0%, transparent 70%);
+  pointer-events:none;
+}
+
+/* Admin variant top bar */
+.auth-card.admin-card::before {
+  background:linear-gradient(90deg,
+    transparent 0%,
+    rgba(196,80,0,0.9) 20%,
+    rgba(255,140,66,1) 45%,
+    rgba(255,180,66,0.9) 65%,
+    rgba(255,100,20,0.7) 85%,
+    transparent 100%);
+  box-shadow:0 0 30px rgba(255,140,66,0.5), 0 0 60px rgba(255,140,66,0.2);
+}
+.auth-card.admin-card::after {
+  background:radial-gradient(ellipse at 50% 0%, rgba(196,80,0,0.1) 0%, transparent 70%);
+}
+
+/* Noise texture overlay */
+.auth-noise {
+  position:absolute; inset:0; pointer-events:none; border-radius:inherit;
+  opacity:0.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* ── ROLE TABS ── */
+.role-selector {
+  display:flex;
+  background:rgba(0,0,0,0.3);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:16px;
+  padding:4px;
+  gap:4px;
+  margin-bottom:20px;
 }
 
 .role-tab {
-  flex:1; padding:13px; border-radius:14px; font-size:14px; font-weight:700;
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  border:1px solid transparent; cursor:pointer;
-  transition:all .25s cubic-bezier(.16,1,.3,1); font-family:var(--font);
-  background:transparent; color:rgba(255,255,255,0.4); letter-spacing:0.01em;
+  flex:1;
+  padding:11px 8px;
+  border-radius:12px;
+  font-size:13.5px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  border:1px solid transparent;
+  cursor:pointer;
+  transition:all .28s cubic-bezier(.16,1,.3,1);
+  font-family:var(--font);
+  background:transparent;
+  color:rgba(255,255,255,0.3);
+  letter-spacing:0.01em;
+  position:relative;
 }
-.role-tab:hover { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.78); }
+.role-tab:hover {
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.65);
+}
 .role-tab-member-on {
-  background:linear-gradient(135deg,rgba(79,61,240,0.32),rgba(124,109,250,0.2))!important;
-  border-color:rgba(124,109,250,0.6)!important;
-  color:#cdc4ff!important;
-  box-shadow:0 0 30px rgba(79,61,240,0.25), inset 0 1px 0 rgba(255,255,255,0.12)!important;
-  text-shadow:0 0 16px rgba(196,180,255,0.55)!important;
+  background:linear-gradient(135deg, rgba(79,61,240,0.35) 0%, rgba(124,109,250,0.2) 100%) !important;
+  border-color:rgba(124,109,250,0.5) !important;
+  color:#ddd8ff !important;
+  box-shadow:
+    0 0 0 1px rgba(124,109,250,0.15),
+    0 4px 20px rgba(79,61,240,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.12) !important;
+  text-shadow:0 0 20px rgba(180,170,255,0.5) !important;
 }
 .role-tab-admin-on {
-  background:linear-gradient(135deg,rgba(196,80,0,0.32),rgba(255,140,66,0.2))!important;
-  border-color:rgba(255,140,66,0.6)!important;
-  color:#ffd0a0!important;
-  box-shadow:0 0 30px rgba(255,140,66,0.25), inset 0 1px 0 rgba(255,255,255,0.12)!important;
-  text-shadow:0 0 16px rgba(255,208,160,0.55)!important;
+  background:linear-gradient(135deg, rgba(196,80,0,0.38) 0%, rgba(255,140,66,0.22) 100%) !important;
+  border-color:rgba(255,140,66,0.52) !important;
+  color:#ffe4c0 !important;
+  box-shadow:
+    0 0 0 1px rgba(255,140,66,0.15),
+    0 4px 20px rgba(196,80,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.12) !important;
+  text-shadow:0 0 20px rgba(255,220,160,0.5) !important;
 }
 
+/* ── MODE TOGGLE (Sign In / Create Account) ── */
+.mode-selector {
+  display:flex;
+  background:rgba(0,0,0,0.25);
+  border:1px solid rgba(255,255,255,0.07);
+  border-radius:14px;
+  padding:3px;
+  gap:3px;
+  margin-bottom:24px;
+}
 .auth-mode-btn {
-  flex:1; padding:11px; border-radius:11px; font-size:13px; font-weight:700;
-  display:flex; align-items:center; justify-content:center; gap:6px;
-  border:1px solid transparent; cursor:pointer;
-  transition:all .22s cubic-bezier(.16,1,.3,1); font-family:var(--font);
-  background:transparent; color:rgba(255,255,255,0.36); letter-spacing:0.01em;
+  flex:1;
+  padding:10px 8px;
+  border-radius:11px;
+  font-size:13px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  border:1px solid transparent;
+  cursor:pointer;
+  transition:all .22s cubic-bezier(.16,1,.3,1);
+  font-family:var(--font);
+  background:transparent;
+  color:rgba(255,255,255,0.3);
+  letter-spacing:0.01em;
 }
-.auth-mode-btn:hover { color:rgba(255,255,255,0.75); background:rgba(255,255,255,0.06); }
-.auth-mode-on { background:rgba(255,255,255,0.1)!important; border-color:rgba(255,255,255,0.2)!important; color:#ffffff!important; box-shadow:inset 0 1px 0 rgba(255,255,255,0.1)!important; }
+.auth-mode-btn:hover {
+  color:rgba(255,255,255,0.65);
+  background:rgba(255,255,255,0.05);
+}
+.auth-mode-on {
+  background:rgba(255,255,255,0.09) !important;
+  border-color:rgba(255,255,255,0.16) !important;
+  color:#ffffff !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.3) !important;
+}
 
+/* ── AUTH HEADER ── */
+.auth-header-icon {
+  width:44px; height:44px; border-radius:14px;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+  position:relative;
+}
+.auth-header-icon::after {
+  content:''; position:absolute; inset:-6px;
+  border-radius:20px;
+  opacity:0.15;
+}
+
+/* ── AUTH SUBMIT BUTTON ── */
+.auth-submit-btn {
+  width:100%;
+  padding:15px;
+  font-size:15px;
+  font-weight:800;
+  border-radius:16px;
+  border:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  font-family:var(--font);
+  letter-spacing:0.01em;
+  transition:all .25s cubic-bezier(.16,1,.3,1);
+  position:relative;
+  overflow:hidden;
+  margin-top:6px;
+}
+.auth-submit-btn::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(rgba(255,255,255,0.12), transparent);
+  pointer-events:none;
+}
+.auth-submit-btn::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:1px;
+  background:rgba(0,0,0,0.2);
+}
+.auth-submit-member {
+  background:linear-gradient(135deg, #4530e0, #7c6dfa 50%, #9b87ff);
+  color:white;
+  box-shadow:0 6px 30px rgba(79,61,240,0.45), 0 2px 0 rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.auth-submit-member:hover {
+  transform:translateY(-2px);
+  box-shadow:0 12px 40px rgba(79,61,240,0.65), 0 0 80px rgba(124,109,250,0.2);
+}
+.auth-submit-member:active { transform:translateY(0); }
+.auth-submit-admin {
+  background:linear-gradient(135deg, #b34500, #ff8c42 50%, #ffaa66);
+  color:white;
+  box-shadow:0 6px 30px rgba(196,80,0,0.45), 0 2px 0 rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.auth-submit-admin:hover {
+  transform:translateY(-2px);
+  box-shadow:0 12px 40px rgba(196,80,0,0.65), 0 0 80px rgba(255,140,66,0.2);
+}
+
+/* ── FEATURE PILLS ── */
 .feat-pill {
   display:inline-flex; align-items:center; gap:5px;
-  padding:4px 12px; border-radius:99px; font-size:11px; font-weight:600;
-  background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15);
-  color:rgba(255,255,255,0.72);
+  padding:5px 13px; border-radius:99px;
+  font-size:11px; font-weight:600;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.12);
+  color:rgba(255,255,255,0.7);
+  transition:all .2s;
+}
+.feat-pill:hover {
+  background:rgba(255,255,255,0.1);
+  border-color:rgba(255,255,255,0.2);
+  color:#ffffff;
+}
+
+/* ── LEFT PANEL ── */
+.auth-left-panel {
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:60px 56px;
+  max-width:520px;
+  position:relative;
+  z-index:1;
+}
+.auth-feature-item {
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+  padding:14px 16px;
+  border-radius:16px;
+  border:1px solid transparent;
+  transition:all .25s;
+  cursor:default;
+}
+.auth-feature-item:hover {
+  background:rgba(255,255,255,0.03);
+  border-color:rgba(255,255,255,0.07);
+}
+.auth-feature-icon {
+  width:38px; height:38px; border-radius:11px;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
 }
 
 /* ── hex grid background ── */
 .hex-bg {
-  position:absolute; inset:0; pointer-events:none; overflow:hidden; opacity:0.04;
+  position:absolute; inset:0; pointer-events:none; overflow:hidden; opacity:0.035;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zM28 100L0 84V50l28 16 28-16v34L28 100z' fill='none' stroke='%237c6dfa' stroke-width='1'/%3E%3C/svg%3E");
   background-size:56px 100px;
 }
@@ -554,12 +803,21 @@ button { cursor:pointer; }
   backgroundImage:'linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px)';
   backgroundSize:'28px 28px';
 }
+
+/* ── forgot password link ── */
+.forgot-link {
+  background:none; border:none; cursor:pointer;
+  font-size:12.5px; font-weight:600; font-family:var(--font);
+  text-align:center; padding:6px 0; margin-top:4px;
+  transition:all .2s; display:flex; align-items:center; justify-content:center; gap:5px;
+}
+.forgot-link:hover { opacity:1 !important; text-decoration:underline; }
 `;
 
 const injectCSS = () => {
-  if (document.getElementById('sm-v4')) return;
+  if (document.getElementById('sm-v5')) return;
   const s = document.createElement('style');
-  s.id = 'sm-v4'; s.textContent = CSS;
+  s.id = 'sm-v5'; s.textContent = CSS;
   document.head.appendChild(s);
 };
 
@@ -679,9 +937,9 @@ const AlertBanner = ({ msg, type='error' }) => {
   const bc  = type === 'error' ? 'rgba(255,90,126,.25)' : type === 'success' ? 'rgba(0,229,160,.25)' : 'rgba(255,140,66,.25)';
   const Icon = type === 'error' ? AlertTriangle : CheckCircle;
   return (
-    <div className="su" style={{ marginBottom:16, background:bg, border:`1px solid ${bc}`, borderRadius:14, padding:'12px 16px', display:'flex', gap:10, alignItems:'flex-start' }}>
-      <Icon size={15} style={{ color:col, flexShrink:0, marginTop:1 }}/>
-      <span style={{ fontSize:12.5, color:col, fontWeight:600 }}>{msg}</span>
+    <div className="su" style={{ marginBottom:14, background:bg, border:`1px solid ${bc}`, borderRadius:12, padding:'11px 14px', display:'flex', gap:9, alignItems:'flex-start' }}>
+      <Icon size={14} style={{ color:col, flexShrink:0, marginTop:1 }}/>
+      <span style={{ fontSize:12.5, color:col, fontWeight:600, lineHeight:1.5 }}>{msg}</span>
     </div>
   );
 };
@@ -830,7 +1088,7 @@ const PasswordInput = ({ value, onChange, placeholder='Password', showMeter=fals
     <div>
       <Inp icon={Lock} type={show?'text':'password'} placeholder={placeholder} value={value} onChange={onChange} autoComplete={autoComplete} autoFocus={autoFocus}
         iconRight={
-          <button type="button" onClick={()=>setShow(v=>!v)} style={{ background:'none', border:'none', cursor:'pointer', color:show?C.i:C.muted, display:'flex', padding:4, transition:'color .2s' }}>
+          <button type="button" onClick={()=>setShow(v=>!v)} style={{ background:'none', border:'none', cursor:'pointer', color:show?C.i:'rgba(255,255,255,0.35)', display:'flex', padding:4, transition:'color .2s' }}>
             {show ? <EyeOff size={15}/> : <Eye size={15}/>}
           </button>
         }
@@ -914,7 +1172,7 @@ const ForgotPasswordPanel = ({ users, onClose, accentCol, accentGrad, isAdmin })
             <div style={{ width:38, height:38, borderRadius:11, background:`${accentCol}18`, display:'flex', alignItems:'center', justifyContent:'center', color:accentCol }}><Key size={17}/></div>
             <div>
               <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:'#ffffff' }}>Forgot Password?</h3>
-              <p style={{ fontSize:12, color:C.muted, marginTop:2 }}>Enter your {isAdmin?'admin ':''} username to begin</p>
+              <p style={{ fontSize:12, color:'rgba(255,255,255,0.45)', marginTop:2 }}>Enter your {isAdmin?'admin ':''} username to begin</p>
             </div>
           </div>
           <AlertBanner msg={err}/>
@@ -932,12 +1190,12 @@ const ForgotPasswordPanel = ({ users, onClose, accentCol, accentGrad, isAdmin })
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
             <Avatar name={foundUser.name} size={44}/>
             <div>
-              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:C.text }}>{foundUser.name}</h3>
-              <p style={{ fontSize:12, color:C.muted, marginTop:2 }}>@{foundUser.username}</p>
+              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:'#ffffff' }}>{foundUser.name}</h3>
+              <p style={{ fontSize:12, color:'rgba(255,255,255,0.45)', marginTop:2 }}>@{foundUser.username}</p>
             </div>
           </div>
           <div style={{ background:`${accentCol}0d`, border:`1px solid ${accentCol}28`, borderRadius:14, padding:'12px 16px', marginBottom:16 }}>
-            <p style={{ fontSize:12.5, color:C.sub, lineHeight:1.6 }}>Type your <strong style={{color:C.text}}>full name</strong> or <strong style={{color:C.text}}>birthday</strong> (YYYY-MM-DD) to verify identity.</p>
+            <p style={{ fontSize:12.5, color:'rgba(255,255,255,0.6)', lineHeight:1.6 }}>Type your <strong style={{color:'#ffffff'}}>full name</strong> or <strong style={{color:'#ffffff'}}>birthday</strong> (YYYY-MM-DD) to verify identity.</p>
           </div>
           <AlertBanner msg={err}/>
           <form onSubmit={handleVerify} style={{ display:'flex', flexDirection:'column', gap:12 }}>
@@ -955,7 +1213,7 @@ const ForgotPasswordPanel = ({ users, onClose, accentCol, accentGrad, isAdmin })
             <div style={{ width:38, height:38, borderRadius:11, background:`${accentCol}18`, display:'flex', alignItems:'center', justifyContent:'center', color:accentCol }}><Lock size={17}/></div>
             <div>
               <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:'#ffffff' }}>Set New Password</h3>
-              <p style={{ fontSize:12, color:C.muted, marginTop:2 }}>For <strong style={{color:accentCol}}>@{foundUser.username}</strong></p>
+              <p style={{ fontSize:12, color:'rgba(255,255,255,0.45)', marginTop:2 }}>For <strong style={{color:accentCol}}>@{foundUser.username}</strong></p>
             </div>
           </div>
           <AlertBanner msg={err}/>
@@ -974,8 +1232,8 @@ const ForgotPasswordPanel = ({ users, onClose, accentCol, accentGrad, isAdmin })
           <div style={{ width:64, height:64, borderRadius:'50%', background:`${accentCol}18`, border:`2px solid ${accentCol}44`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px', boxShadow:`0 0 34px ${accentCol}35` }}>
             <CheckCircle size={32} style={{ color:accentCol }}/>
           </div>
-          <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:20, color:C.text, marginBottom:8 }}>Password Reset!</h3>
-          <p style={{ fontSize:13, color:C.sub, lineHeight:1.6, marginBottom:24 }}>Password updated successfully. Sign in with your new credentials.</p>
+          <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:20, color:'#ffffff', marginBottom:8 }}>Password Reset!</h3>
+          <p style={{ fontSize:13, color:'rgba(255,255,255,0.55)', lineHeight:1.6, marginBottom:24 }}>Password updated successfully. Sign in with your new credentials.</p>
           <button className="btn" onClick={onClose} style={{ width:'100%', padding:'14px', background:accentGrad, color:'white', gap:8, fontSize:14 }}>
             <ArrowLeft size={15}/>Back to Sign In
           </button>
@@ -986,13 +1244,12 @@ const ForgotPasswordPanel = ({ users, onClose, accentCol, accentGrad, isAdmin })
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// AUTH VIEW
+// AUTH VIEW — COMPLETE PREMIUM REDESIGN
 // ══════════════════════════════════════════════════════════════════════════════
 const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister, loadingState, error }) => {
   const [role, setRole] = useState('member');
   const [mode, setMode] = useState('signin');
   const [regForm, setRegForm] = useState({ name:'', username:'', password:'', confirm:'', birthday:'' });
-  // BUG FIX: Use local state for registration errors instead of alert()
   const [regErr, setRegErr] = useState('');
   const [regSuccess, setRegSuccess] = useState('');
   const [showRetry, setShowRetry] = useState(false);
@@ -1019,137 +1276,212 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
   const accentGrad = isAdmin ? 'linear-gradient(135deg,#c45000,#ff8c42)' : 'linear-gradient(135deg,#4f3df0,#7c6dfa)';
   const particleColor = isAdmin ? '255,140,66' : '124,109,250';
 
+  const FEATURES = [
+    { icon:<Activity size={17}/>, col:'#7c6dfa', bg:'rgba(124,109,250,0.15)', title:'Live Dashboard', sub:'Real-time balance & transaction tracking' },
+    { icon:<Sparkles size={17}/>, col:'#f06bff', bg:'rgba(240,107,255,0.15)', title:'AI-Powered Reminders', sub:'Generate smart payment nudges instantly' },
+    { icon:<Globe2 size={17}/>, col:'#00d4ff', bg:'rgba(0,212,255,0.15)', title:'Group Management', sub:'Invite members, manage events, chat live' },
+  ];
+
   return (
-    <div style={{ minHeight:'100vh', background:C.bg, display:'flex', position:'relative', overflow:'hidden' }}>
+    <div className="auth-page">
       <div className="hex-bg"/>
       <ParticleCanvas color={particleColor}/>
 
-      {/* Background orbs */}
-      <div style={{ position:'absolute', width:800, height:800, borderRadius:'50%', background:isAdmin?'radial-gradient(circle,rgba(196,80,0,0.07),transparent 70%)':'radial-gradient(circle,rgba(79,61,240,0.08),transparent 70%)', top:'-25%', left:'-20%', animation:'drift 16s ease-in-out infinite', pointerEvents:'none' }}/>
-      <div style={{ position:'absolute', width:600, height:600, borderRadius:'50%', background:isAdmin?'radial-gradient(circle,rgba(255,140,66,0.04),transparent 70%)':'radial-gradient(circle,rgba(0,212,255,0.04),transparent 70%)', bottom:'-20%', right:'-15%', animation:'drift2 20s ease-in-out infinite', pointerEvents:'none' }}/>
-      <div style={{ position:'absolute', width:300, height:300, borderRadius:'50%', background:`radial-gradient(circle,${accentCol}06,transparent 70%)`, top:'40%', left:'30%', animation:'drift 25s ease-in-out infinite 5s', pointerEvents:'none' }}/>
+      {/* Ambient background orbs */}
+      <div style={{ position:'absolute', width:700, height:700, borderRadius:'50%', background:isAdmin?'radial-gradient(circle,rgba(196,80,0,0.1),transparent 70%)':'radial-gradient(circle,rgba(79,61,240,0.1),transparent 70%)', top:'-20%', left:'-15%', animation:'drift 16s ease-in-out infinite', pointerEvents:'none' }}/>
+      <div style={{ position:'absolute', width:500, height:500, borderRadius:'50%', background:isAdmin?'radial-gradient(circle,rgba(255,140,66,0.06),transparent 70%)':'radial-gradient(circle,rgba(0,212,255,0.05),transparent 70%)', bottom:'-15%', right:'-10%', animation:'drift2 20s ease-in-out infinite', pointerEvents:'none' }}/>
+      <div style={{ position:'absolute', width:280, height:280, borderRadius:'50%', background:`radial-gradient(circle,${accentCol}08,transparent 70%)`, top:'45%', left:'35%', animation:'drift 28s ease-in-out infinite 6s', pointerEvents:'none' }}/>
 
-      {/* Left feature panel */}
-      <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', padding:'60px 48px', maxWidth:500, position:'relative', zIndex:1 }} className="fu">
-        <div style={{ marginBottom:48 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:13, marginBottom:36 }}>
-            <div style={{ width:46, height:46, borderRadius:15, background:accentGrad, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 0 28px ${accentCol}55, inset 0 1px 0 rgba(255,255,255,0.2)` }}>
-              <DollarSign size={22} color="white"/>
-            </div>
-            <span style={{ fontFamily:"'Syne',sans-serif", fontSize:19, fontWeight:800, color:'#ffffff', letterSpacing:'-.02em' }}>Smart Manager</span>
+      {/* ── LEFT PANEL ── */}
+      <div className="auth-left-panel fu">
+        {/* Logo */}
+        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:52 }}>
+          <div style={{ width:50, height:50, borderRadius:16, background:accentGrad, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 0 32px ${accentCol}60, inset 0 1px 0 rgba(255,255,255,0.2)`, animation:'floatY 4s ease-in-out infinite' }}>
+            <DollarSign size={24} color="white"/>
           </div>
-          <h1 style={{ fontFamily:"'Syne',sans-serif", fontSize:42, fontWeight:800, color:'#ffffff', lineHeight:1.1, letterSpacing:'-.03em', marginBottom:18 }}>
-            Manage dues<br/>
-            <span style={{ backgroundImage:accentGrad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>intelligently</span>
-          </h1>
-          <p style={{ fontSize:15, color:'rgba(255,255,255,0.6)', lineHeight:1.75, marginBottom:32 }}>Track payments, send invitations, chat with members — all in one beautiful interface.</p>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-            {['AI-powered','Real-time','UPI Payments','Group Chat','Event Invites'].map(f => (
-              <span key={f} className="feat-pill"><Zap size={10} style={{ color:accentCol }}/>{f}</span>
-            ))}
+          <div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:800, color:'#ffffff', letterSpacing:'-.02em' }}>Smart Manager</div>
+            <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)', fontWeight:600, letterSpacing:'.08em', textTransform:'uppercase', marginTop:1 }}>Dues · Payments · Chat</div>
           </div>
         </div>
-        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-          {[
-            { icon:<Activity size={16}/>, title:'Live Dashboard', sub:'Real-time balance & transaction tracking' },
-            { icon:<Sparkles size={16}/>, title:'AI Reminders', sub:'Generate smart payment nudges instantly' },
-            { icon:<Globe2 size={16}/>, title:'Group Management', sub:'Invite members, manage events, chat live' },
-          ].map((f,i) => (
-            <div key={f.title} className={`fu d${i+1}`} style={{ display:'flex', alignItems:'flex-start', gap:14 }}>
-              <div style={{ width:36, height:36, borderRadius:10, background:`${accentCol}18`, display:'flex', alignItems:'center', justifyContent:'center', color:accentCol, flexShrink:0, boxShadow:`0 0 16px ${accentCol}20` }}>{f.icon}</div>
+
+        {/* Headline */}
+        <div style={{ marginBottom:40 }}>
+          <h1 style={{ fontFamily:"'Syne',sans-serif", fontSize:46, fontWeight:800, color:'#ffffff', lineHeight:1.05, letterSpacing:'-.04em', marginBottom:20 }}>
+            Manage dues<br/>
+            <span style={{ backgroundImage:accentGrad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
+              intelligently.
+            </span>
+          </h1>
+          <p style={{ fontSize:15.5, color:'rgba(255,255,255,0.5)', lineHeight:1.75, maxWidth:360 }}>
+            Track payments, send invitations, chat with members — all in one beautiful interface.
+          </p>
+        </div>
+
+        {/* Feature pills row */}
+        <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginBottom:36 }}>
+          {['AI-powered','Real-time sync','UPI Payments','Group Chat','Event Invites'].map(f => (
+            <span key={f} className="feat-pill"><Zap size={10} style={{ color:accentCol }}/>{f}</span>
+          ))}
+        </div>
+
+        {/* Feature list */}
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          {FEATURES.map((f,i) => (
+            <div key={f.title} className={`auth-feature-item fu d${i+1}`}>
+              <div className="auth-feature-icon" style={{ background:f.bg, boxShadow:`0 0 18px ${f.col}20`, color:f.col }}>
+                {f.icon}
+              </div>
               <div>
-                <p style={{ fontWeight:700, fontSize:13, color:C.text, marginBottom:3 }}>{f.title}</p>
-                <p style={{ fontSize:12, color:'rgba(255,255,255,0.45)' }}>{f.sub}</p>
+                <p style={{ fontWeight:700, fontSize:13.5, color:'#ffffff', marginBottom:3 }}>{f.title}</p>
+                <p style={{ fontSize:12, color:'rgba(255,255,255,0.42)', lineHeight:1.5 }}>{f.sub}</p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Right auth card */}
-      <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding:'40px 24px', position:'relative', zIndex:1, maxWidth:520, margin:'0 auto' }}>
-        <div className="auth-card su" style={{ width:'100%', maxWidth:420, position:'relative' }}>
-          <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:accentGrad, borderRadius:'26px 26px 0 0' }}/>
+      {/* ── RIGHT AUTH CARD ── */}
+      <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding:'32px 24px', position:'relative', zIndex:1 }}>
+        <div className={`auth-card${isAdmin?' admin-card':''}`}>
+          <div className="auth-noise"/>
 
           {forgotOpen && <ForgotPasswordPanel users={users} onClose={()=>setForgotOpen(false)} accentCol={accentCol} accentGrad={accentGrad} isAdmin={isAdmin}/>}
 
-          {/* Role selector */}
-          <div className="fu" style={{ display:'flex', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:18, padding:5, gap:5, marginBottom:24 }}>
-            {[{v:'member',icon:<User size={15}/>,label:'Member'},{v:'admin',icon:<ShieldCheck size={15}/>,label:'Admin'}].map(r => (
-              <button key={r.v} onClick={()=>{setRole(r.v);setForgotOpen(false);setRegErr('');setRegSuccess('');}} className={`role-tab${r.v===role?(r.v==='admin'?' role-tab-admin-on':' role-tab-member-on'):''}`}>
-                {r.icon}{r.label}
-                {r.v===role && <div style={{ width:6, height:6, borderRadius:'50%', background:accentCol, boxShadow:`0 0 12px ${accentCol}` }}/>}
+          {/* ── ROLE SELECTOR ── */}
+          <div className="role-selector">
+            {[
+              { v:'member', icon:<User size={15}/>, label:'Member' },
+              { v:'admin',  icon:<ShieldCheck size={15}/>, label:'Admin' }
+            ].map(r => (
+              <button
+                key={r.v}
+                onClick={()=>{setRole(r.v);setForgotOpen(false);setRegErr('');setRegSuccess('');}}
+                className={`role-tab${r.v===role?(r.v==='admin'?' role-tab-admin-on':' role-tab-member-on'):''}`}
+              >
+                {r.icon}
+                {r.label}
+                {r.v===role && (
+                  <div style={{ width:5, height:5, borderRadius:'50%', background:accentCol, boxShadow:`0 0 8px ${accentCol}, 0 0 14px ${accentCol}80` }}/>
+                )}
               </button>
             ))}
           </div>
 
-          {/* Mode selector */}
+          {/* ── MODE TOGGLE ── */}
           {!firstRun && (
-            <div className="fu d1" style={{ display:'flex', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:14, padding:4, gap:3, marginBottom:26 }}>
+            <div className="mode-selector fu d1">
               {[{v:'signin',label:'Sign In'},{v:'signup',label:'Create Account'}].map(m => (
-                <button key={m.v} onClick={()=>{setMode(m.v);setRegErr('');setRegSuccess('');setForgotOpen(false);}} className={`auth-mode-btn${mode===m.v?' auth-mode-on':''}`}>{m.label}</button>
+                <button
+                  key={m.v}
+                  onClick={()=>{setMode(m.v);setRegErr('');setRegSuccess('');setForgotOpen(false);}}
+                  className={`auth-mode-btn${mode===m.v?' auth-mode-on':''}`}
+                >
+                  {m.label}
+                </button>
               ))}
             </div>
           )}
 
-          {/* Header text */}
-          <div className="fu d2" style={{ marginBottom:22 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
-              <div style={{ width:34, height:34, borderRadius:10, background:`${accentCol}18`, display:'flex', alignItems:'center', justifyContent:'center', color:accentCol, boxShadow:`0 0 16px ${accentCol}25` }}>
-                {isAdmin?<ShieldCheck size={16}/>:mode==='signup'?<UserPlus size={16}/>:<User size={16}/>}
-              </div>
-              <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:'#ffffff' }}>
-                {firstRun?'Create Admin':mode==='signup'?`New ${isAdmin?'Admin':'Member'}`:`${isAdmin?'Admin':'Member'} Sign In`}
-              </h2>
+          {/* ── HEADER ── */}
+          <div className="fu d2" style={{ display:'flex', alignItems:'center', gap:13, marginBottom:24 }}>
+            <div
+              className="auth-header-icon"
+              style={{
+                background: isAdmin
+                  ? 'linear-gradient(135deg,rgba(196,80,0,0.3),rgba(255,140,66,0.15))'
+                  : 'linear-gradient(135deg,rgba(79,61,240,0.3),rgba(124,109,250,0.15))',
+                border:`1px solid ${accentCol}35`,
+                color:accentCol,
+                boxShadow:`0 0 24px ${accentCol}25, inset 0 1px 0 rgba(255,255,255,0.1)`
+              }}
+            >
+              {isAdmin ? <ShieldCheck size={18}/> : mode==='signup' ? <UserPlus size={18}/> : <User size={18}/>}
             </div>
-            <p style={{ fontSize:12.5, color:'rgba(255,255,255,0.55)', paddingLeft:2 }}>
-              {firstRun?'Set up your administrator account':mode==='signup'?`Register a new ${isAdmin?'admin':'member'} account`:'Enter your credentials to continue'}
-            </p>
+            <div>
+              <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:19, color:'#ffffff', letterSpacing:'-.02em', lineHeight:1.2 }}>
+                {firstRun ? 'Create Admin' : mode==='signup' ? `New ${isAdmin?'Admin':'Member'}` : `${isAdmin?'Admin':'Member'} Sign In`}
+              </h2>
+              <p style={{ fontSize:12.5, color:'rgba(255,255,255,0.45)', marginTop:4, lineHeight:1.4 }}>
+                {firstRun ? 'Set up your administrator account' : mode==='signup' ? `Register a new ${isAdmin?'admin':'member'} account` : 'Enter your credentials to continue'}
+              </p>
+            </div>
           </div>
 
-          {/* Error / success banners */}
+          {/* ── ALERT BANNERS ── */}
           <AlertBanner msg={regSuccess} type="success"/>
-          <AlertBanner msg={regErr||error?.message||(error&&String(error))||''}/>
+          <AlertBanner msg={regErr || error?.message || (error && String(error)) || ''}/>
 
-          {/* Loading */}
+          {/* ── LOADING ── */}
           {loadingState ? (
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'28px 0', gap:18 }}>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'32px 0', gap:18 }}>
               <div style={{ position:'relative' }}>
                 <Loader size={36} style={{ color:accentCol, animation:'spin .9s linear infinite' }}/>
                 <div style={{ position:'absolute', inset:-10, borderRadius:'50%', border:`2px solid ${accentCol}22`, animation:'glowPulse 2s ease infinite' }}/>
               </div>
+              <p style={{ fontSize:12.5, color:'rgba(255,255,255,0.4)', fontWeight:500 }}>Connecting…</p>
               {showRetry && <button className="btn btn-ghost btn-sm" onClick={()=>window.location.reload()}><RefreshCw size={13}/>Reload</button>}
             </div>
-          ) : mode==='signin'||firstRun ? (
-            /* Sign In */
-            <form onSubmit={submitSignin} className="fu d3" style={{ display:'flex', flexDirection:'column', gap:13 }}>
-              <Inp icon={AtSign} type="text" placeholder="Username" value={loginForm.username} onChange={e=>setLoginForm(p=>({...p,username:e.target.value}))} autoCapitalize="none" autoComplete="username"/>
-              <PasswordInput value={loginForm.password} onChange={e=>setLoginForm(p=>({...p,password:e.target.value}))} placeholder="Password" autoComplete="current-password"/>
-              <button type="submit" className={`btn ${isAdmin?'btn-admin':'btn-primary'} fu d4`} style={{ width:'100%', padding:'15px', fontSize:15, marginTop:4, gap:10 }}>
-                Sign In as {isAdmin?'Admin':'Member'} <ChevronRight size={18}/>
+
+          ) : mode==='signin' || firstRun ? (
+            /* ── SIGN IN FORM ── */
+            <form onSubmit={submitSignin} className="fu d3" style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <Inp
+                icon={AtSign}
+                type="text"
+                placeholder="Username"
+                value={loginForm.username}
+                onChange={e=>setLoginForm(p=>({...p,username:e.target.value}))}
+                autoCapitalize="none"
+                autoComplete="username"
+              />
+              <PasswordInput
+                value={loginForm.password}
+                onChange={e=>setLoginForm(p=>({...p,password:e.target.value}))}
+                placeholder="Password"
+                autoComplete="current-password"
+              />
+
+              <button
+                type="submit"
+                className={`auth-submit-btn fu d4 ${isAdmin?'auth-submit-admin':'auth-submit-member'}`}
+              >
+                Sign In as {isAdmin ? 'Admin' : 'Member'}
+                <ChevronRight size={18}/>
               </button>
+
               {!firstRun && (
-                <button type="button" onClick={()=>setForgotOpen(true)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:accentCol, fontFamily:'var(--font)', fontWeight:600, textAlign:'center', marginTop:2, padding:'4px 0', opacity:.85, transition:'opacity .2s' }}
-                  onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='.85'}>
-                  <Key size={11} style={{ display:'inline', verticalAlign:'middle', marginRight:5 }}/>Forgot password?
+                <button
+                  type="button"
+                  onClick={()=>setForgotOpen(true)}
+                  className="forgot-link"
+                  style={{ color:accentCol, opacity:0.75 }}
+                >
+                  <Key size={11}/>Forgot password?
                 </button>
               )}
             </form>
+
           ) : (
-            /* Sign Up */
-            <form onSubmit={submitSignup} className="fu d3" style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            /* ── SIGN UP FORM ── */
+            <form onSubmit={submitSignup} className="fu d3" style={{ display:'flex', flexDirection:'column', gap:11 }}>
               <Inp icon={User} type="text" placeholder="Full Name" value={regForm.name} onChange={e=>setRegForm(p=>({...p,name:e.target.value}))}/>
               <Inp icon={AtSign} type="text" placeholder="Username" value={regForm.username} onChange={e=>setRegForm(p=>({...p,username:e.target.value}))} autoCapitalize="none"/>
               <PasswordInput value={regForm.password} onChange={e=>setRegForm(p=>({...p,password:e.target.value}))} placeholder="Password (min 4 chars)" showMeter autoComplete="new-password"/>
               <PasswordInput value={regForm.confirm} onChange={e=>setRegForm(p=>({...p,confirm:e.target.value}))} placeholder="Confirm Password" autoComplete="new-password"/>
               {!isAdmin && <Inp icon={Cake} type="date" value={regForm.birthday} onChange={e=>setRegForm(p=>({...p,birthday:e.target.value}))}/>}
-              <button type="submit" className={`btn ${isAdmin?'btn-admin':'btn-primary'} fu d4`} style={{ width:'100%', padding:'15px', fontSize:15, marginTop:4, gap:10 }}>
-                <UserPlus size={17}/>Create {isAdmin?'Admin':'Member'} Account
+              <button
+                type="submit"
+                className={`auth-submit-btn fu d4 ${isAdmin?'auth-submit-admin':'auth-submit-member'}`}
+              >
+                <UserPlus size={17}/>
+                Create {isAdmin ? 'Admin' : 'Member'} Account
               </button>
             </form>
           )}
 
-          <p className="fu d5" style={{ textAlign:'center', fontSize:11, color:'rgba(255,255,255,0.35)', marginTop:22, lineHeight:1.7 }}>
+          {/* ── FOOTER ── */}
+          <p className="fu d5" style={{ textAlign:'center', fontSize:11, color:'rgba(255,255,255,0.22)', marginTop:24, lineHeight:1.7, letterSpacing:'0.02em' }}>
             Secured with Firebase · Smart Manager © 2025
           </p>
         </div>
@@ -1189,7 +1521,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
   const toggleRecip = id => setMsgForm(p=>({...p,recipients:p.recipients.includes(id)?p.recipients.filter(x=>x!==id):[...p.recipients,id]}));
   const selectAll = () => { const ids=members.map(u=>u.id); setMsgForm(p=>({...p,recipients:p.recipients.length===ids.length?[]:ids})); };
 
-  // BUG FIX: createMember with proper feedback via state (no alert)
   const handleCreateMember = () => {
     createMember(msg => {
       if(msg.ok) { setMemberAlert('✓ ' + msg.text); setAddMemberOpen(false); setTimeout(()=>setMemberAlert(''),3500); }
@@ -1215,7 +1546,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
 
   return (
     <div style={{ background:C.bg, minHeight:'100vh' }}>
-      {/* Top Nav */}
       <nav className="topnav">
         <div style={{ maxWidth:1200, margin:'0 auto', padding:'0 24px' }}>
           <div style={{ height:62, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -1237,7 +1567,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
               <button className="btn btn-ghost btn-sm" onClick={handleLogout} style={{ gap:6 }}><LogOut size={14}/>Logout</button>
             </div>
           </div>
-          {/* Tab strip */}
           <div className="no-scroll" style={{ display:'flex', gap:4, paddingBottom:12, overflowX:'auto' }}>
             {TABS.map(t => (
               <button key={t.v} onClick={()=>setTab(t.v)} style={{ padding:'7px 15px', borderRadius:10, fontSize:12.5, fontWeight:700, display:'flex', alignItems:'center', gap:6, border:tab===t.v?'1px solid rgba(124,109,250,.3)':'1px solid transparent', background:tab===t.v?'rgba(124,109,250,.12)':'transparent', color:tab===t.v?'#a393fb':C.muted, fontFamily:"'Syne',sans-serif", cursor:'pointer', transition:'all .2s', whiteSpace:'nowrap', position:'relative' }}>
@@ -1253,7 +1582,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
       <div style={{ maxWidth:1200, margin:'0 auto', padding:'30px 24px 80px' }}>
         {memberAlert && <AlertBanner msg={memberAlert} type={memberAlert.startsWith('✓')?'success':'error'}/>}
 
-        {/* OVERVIEW */}
         {tab==='overview' && (
           <div className="page">
             <SH title="Dashboard" sub={`${members.length} members · ₹${totalDue.toFixed(0)} outstanding`}/>
@@ -1272,8 +1600,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
                 </div>
               ))}
             </div>
-
-            {/* Collection progress */}
             <div className="card fu d5" style={{ marginBottom:28, background:'rgba(124,109,250,0.04)', borderColor:'rgba(124,109,250,0.14)' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
                 <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:C.text }}>Collection Progress</h3>
@@ -1287,7 +1613,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
                 <span>Due: ₹{totalDue.toFixed(0)}</span>
               </div>
             </div>
-
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
               <h3 style={{ fontFamily:"'Syne',sans-serif", fontSize:16, fontWeight:800, color:C.text }}>Recent Transactions</h3>
               <div style={{ display:'flex', gap:5 }}>
@@ -1303,7 +1628,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
           </div>
         )}
 
-        {/* MEMBERS */}
         {tab==='members' && (
           <div className="page">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24, flexWrap:'wrap', gap:12 }}>
@@ -1353,7 +1677,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
           </div>
         )}
 
-        {/* APPROVALS */}
         {tab==='approvals' && (
           <div className="page">
             <SH title="Pending Approvals" sub={`${pending.length} payment${pending.length!==1?'s':''} awaiting`}/>
@@ -1391,7 +1714,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
           </div>
         )}
 
-        {/* EVENTS */}
         {tab==='events' && (
           <div className="page">
             <SH title="Send Invitation" sub="Create and broadcast event invitations to members"/>
@@ -1435,7 +1757,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
           </div>
         )}
 
-        {/* CHAT */}
         {tab==='chat' && (
           <div className="page">
             <SH title="Community Chat"/>
@@ -1459,7 +1780,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
           </div>
         )}
 
-        {/* SETTINGS */}
         {tab==='settings' && (
           <div className="page">
             <SH title="Settings"/>
@@ -1495,7 +1815,6 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
         )}
       </div>
 
-      {/* Add Member Modal */}
       {addMemberOpen && (
         <Modal onClose={()=>setAddMemberOpen(false)} title="Add New Member">
           <div style={{ display:'flex', flexDirection:'column', gap:13 }}>
@@ -1573,8 +1892,6 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
       </div>
 
       <div style={{ maxWidth:540, margin:'0 auto', padding:'22px 20px 80px' }}>
-
-        {/* HOME */}
         {tab==='home' && (
           <div className="page">
             {isBday() && (
@@ -1585,7 +1902,6 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
                 <p style={{ fontSize:13, color:'rgba(255,255,255,.85)', marginTop:6 }}>Wishing you a wonderful day, {appUser.name}!</p>
               </div>
             )}
-
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:24 }}>
               {[
                 { label:'Main Due', val:Math.abs(mainBal), col:mainBal>0?C.r:C.g, bg:mainBal>0?'rgba(255,90,126,.08)':'rgba(0,229,160,.08)', br:mainBal>0?'rgba(255,90,126,.2)':'rgba(0,229,160,.2)', extra:mainBal>0?'owes':'credit' },
@@ -1598,7 +1914,6 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
                 </div>
               ))}
             </div>
-
             <h3 style={{ fontFamily:"'Syne',sans-serif", fontSize:15, fontWeight:800, color:C.text, marginBottom:14, display:'flex', alignItems:'center', gap:7 }}>
               <History size={15} color={C.i}/>Recent Activity
             </h3>
@@ -1609,11 +1924,9 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
           </div>
         )}
 
-        {/* WALLET */}
         {tab==='wallet' && (
           <div className="page">
             <TabRail tabs={[{v:'main',label:'Main',icon:<Briefcase size={13}/>},{v:'grocery',label:'Grocery',icon:<ShoppingCart size={13}/>}]} active={wallet} onChange={setWallet} style={{ marginBottom:22 }}/>
-
             <div className="su" style={{ background:walletGrad, borderRadius:26, padding:30, marginBottom:22, position:'relative', overflow:'hidden', boxShadow:`0 0 50px ${walletAccent}18, 0 28px 56px rgba(0,0,0,0.5)`, border:`1px solid ${walletAccent}28` }}>
               <div style={{ position:'absolute', top:-60, right:-60, width:240, height:240, borderRadius:'50%', background:`${walletAccent}12`, filter:'blur(50px)', pointerEvents:'none' }}/>
               <div style={{ position:'absolute', inset:0, backgroundImage:'linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px)', backgroundSize:'24px 24px', pointerEvents:'none', borderRadius:'inherit' }}/>
@@ -1638,7 +1951,6 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
                 </div>
               </div>
             </div>
-
             <h3 style={{ fontFamily:"'Syne',sans-serif", fontSize:15, fontWeight:800, color:C.text, marginBottom:14 }}>Transaction History</h3>
             <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
               {myTx.length>0 ? myTx.map(tx => <TxRow key={tx.id} tx={tx}/>) : <Empty icon={History} title={`No ${wallet} transactions`}/>}
@@ -1646,7 +1958,6 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
           </div>
         )}
 
-        {/* CHAT */}
         {tab==='chat' && (
           <div className="page" style={{ height:'calc(100vh - 180px)', display:'flex', flexDirection:'column' }}>
             <TabRail tabs={[{v:'public',label:'Group Chat'},{v:'private',label:'Admin DM'}]} active={chatMode} onChange={setChatMode} style={{ marginBottom:14 }}/>
@@ -1656,7 +1967,6 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
           </div>
         )}
 
-        {/* EVENTS */}
         {tab==='events' && (
           <div className="page">
             <SH title="Invitations" sub={`${myMsgs.length} event${myMsgs.length!==1?'s':''}`}/>
@@ -1665,7 +1975,6 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
         )}
       </div>
 
-      {/* Pay Modal */}
       {payOpen && (
         <Modal onClose={()=>setPayOpen(false)} title="Pay via UPI">
           <p style={{ fontSize:13, color:C.sub, marginBottom:18, lineHeight:1.6 }}>Opens your UPI app to complete the payment.</p>
@@ -1683,7 +1992,6 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
         </Modal>
       )}
 
-      {/* Report Modal */}
       {reportOpen && (
         <Modal onClose={()=>setReportOpen(false)} title="Manual Payment Report">
           <p style={{ fontSize:13, color:C.sub, marginBottom:18 }}>Report a payment made outside the app. Requires admin approval.</p>
@@ -1697,7 +2005,6 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
         </Modal>
       )}
 
-      {/* Password Modal */}
       {passOpen && (
         <Modal onClose={()=>{setPassOpen(false);setNewPass('');}} title="Change Password">
           <p style={{ fontSize:13, color:C.sub, marginBottom:18, lineHeight:1.6 }}>Choose a strong new password for your account.</p>
@@ -1889,7 +2196,6 @@ const App = () => {
   const [view,         setView]    = useState('auth');
   const [selMember,    setSel]     = useState(null);
   const [online,       setOnline]  = useState(navigator.onLine);
-  // BUG FIX: loginError separate from Firebase auth errors
   const [loginError,   setLoginErr] = useState(null);
   const [loginForm,    setLoginF]  = useState({ username:'', password:'' });
   const [newMemForm,   setNewMem]  = useState({ name:'', password:'', birthday:'' });
@@ -1900,7 +2206,6 @@ const App = () => {
     window.addEventListener('online', up); window.addEventListener('offline', dn);
     const init = async () => {
       try {
-        // BUG FIX: Safe check for __initial_auth_token
         if(typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
         } else {
@@ -1925,7 +2230,6 @@ const App = () => {
     return () => subs.forEach(u=>u());
   }, [firebaseUser]);
 
-  // BUG FIX: handleLogin uses state error instead of alert()
   const handleLogin = useCallback((e, role) => {
     e.preventDefault(); setLoginErr(null);
     if(users.length===0) {
@@ -1943,7 +2247,6 @@ const App = () => {
     else setLoginErr({ message: role==='admin'?'Invalid admin credentials.':'Invalid username or password.' });
   }, [users, loginForm]);
 
-  // BUG FIX: handleRegister uses callback for UX feedback instead of alert()
   const handleRegister = useCallback((form, role, cb) => {
     const uname = toUsername(form.username);
     if(!uname) return cb({ ok:false, text:'Invalid username.' });
@@ -1953,7 +2256,6 @@ const App = () => {
       .catch(() => cb({ ok:false, text:'Failed to create account. Try again.' }));
   }, [users]);
 
-  // BUG FIX: createMember now accepts callback for UI feedback
   const createMember = useCallback((cb) => {
     if(!newMemForm.name||!newMemForm.password) return cb?.({ ok:false, text:'Name and password required.' });
     const uname = toUsername(newMemForm.name);
@@ -1992,9 +2294,7 @@ const App = () => {
   const delTx = id => { if(window.confirm('Delete transaction?')) deleteDoc(dRef(COL.TX,id)); };
   const logout = () => { setAppUser(null); setView('auth'); setLoginErr(null); };
 
-  // Construct error for auth view
   const authError = loginError?.type==='success' ? null : loginError;
-  const authSuccess = loginError?.type==='success' ? loginError : null;
 
   return (
     <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"'Outfit', system-ui, sans-serif" }}>
@@ -2012,57 +2312,29 @@ const App = () => {
       )}
       {view==='dashboard' && appUser?.role==='admin' && (
         <AdminDash
-          users={users}
-          handleLogout={logout}
-          upiId={upiId}
-          setUpiId={setUpiId}
-          saveUpiId={saveUpi}
-          newMemForm={newMemForm}
-          setNewMemForm={setNewMem}
-          createMember={createMember}
-          populateDefaults={populateDefs}
-          getMemberBalance={getBal}
-          setSelMember={setSel}
-          setView={setView}
-          transactions={transactions}
-          sendMessage={sendMsg}
-          handleApproval={approve}
-          isGroceryEnabled={groceryOn}
-          toggleGrocery={toggleGroc}
-          chatMessages={chatMsgs}
-          sendChat={sendChat}
-          appUser={appUser}
+          users={users} handleLogout={logout} upiId={upiId} setUpiId={setUpiId}
+          saveUpiId={saveUpi} newMemForm={newMemForm} setNewMemForm={setNewMem}
+          createMember={createMember} populateDefaults={populateDefs}
+          getMemberBalance={getBal} setSelMember={setSel} setView={setView}
+          transactions={transactions} sendMessage={sendMsg} handleApproval={approve}
+          isGroceryEnabled={groceryOn} toggleGrocery={toggleGroc}
+          chatMessages={chatMsgs} sendChat={sendChat} appUser={appUser}
         />
       )}
       {view==='dashboard' && appUser?.role==='member' && (
         <MemberDash
-          appUser={appUser}
-          handleLogout={logout}
-          getMemberBalance={getBal}
-          transactions={transactions}
-          upiId={upiId}
-          changePassword={changePass}
-          messages={messages}
-          reportPayment={reportPay}
-          isGroceryEnabled={groceryOn}
-          chatMessages={chatMsgs}
-          sendChat={sendChat}
+          appUser={appUser} handleLogout={logout} getMemberBalance={getBal}
+          transactions={transactions} upiId={upiId} changePassword={changePass}
+          messages={messages} reportPayment={reportPay} isGroceryEnabled={groceryOn}
+          chatMessages={chatMsgs} sendChat={sendChat}
         />
       )}
       {view==='member-detail' && (
         <MemberDetail
-          users={users}
-          selMember={selMember}
-          transactions={transactions}
-          appUser={appUser}
-          txForm={txForm}
-          setTxForm={setTxForm}
-          addTx={addTx}
-          setSelMember={setSel}
-          setView={setView}
-          getMemberBalance={getBal}
-          delTx={delTx}
-          resetPassword={resetPassword}
+          users={users} selMember={selMember} transactions={transactions}
+          appUser={appUser} txForm={txForm} setTxForm={setTxForm}
+          addTx={addTx} setSelMember={setSel} setView={setView}
+          getMemberBalance={getBal} delTx={delTx} resetPassword={resetPassword}
         />
       )}
     </div>
