@@ -409,6 +409,25 @@ button { cursor:pointer; }
 .no-scroll::-webkit-scrollbar { display:none; }
 .divider { height:1px; background:rgba(255,255,255,0.06); margin:20px 0; }
 
+/* ── password strength ────────────────────────────────────── */
+.pw-bar-wrap { display:flex; gap:4px; margin-top:7px; }
+.pw-bar { flex:1; height:3px; border-radius:99px; transition:background .35s, transform .35s; }
+.pw-label { font-size:10.5px; font-weight:700; margin-top:5px; letter-spacing:.02em; transition:color .3s; }
+
+/* ── forgot password panel ────────────────────────────────── */
+.fp-overlay {
+  position:absolute; inset:0; border-radius:28px;
+  background:rgba(4,5,14,0.97);
+  backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+  z-index:10; display:flex; flex-direction:column; justify-content:center;
+  padding:32px;
+  animation:scaleUp .28s cubic-bezier(.16,1,.3,1);
+}
+.fp-step-dot {
+  width:8px; height:8px; border-radius:50%;
+  transition:all .3s cubic-bezier(.16,1,.3,1);
+}
+
 /* ── auth page specific ───────────────────────────────────── */
 .auth-card {
   background:rgba(8,12,26,0.96);
@@ -696,17 +715,228 @@ const ParticleCanvas = ({ color = '129,140,248' }) => {
   return <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />;
 };
 
+// ── Atom: PasswordInput with show/hide + optional strength meter ────────────
+const pwStrength = pw => {
+  if (!pw) return { score: 0, label: '', color: 'transparent' };
+  let s = 0;
+  if (pw.length >= 4) s++;
+  if (pw.length >= 8) s++;
+  if (/[A-Z]/.test(pw)) s++;
+  if (/[0-9]/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  const map = [
+    { label: '', color: 'transparent' },
+    { label: 'Too weak', color: '#f87171' },
+    { label: 'Weak', color: '#fb923c' },
+    { label: 'Fair', color: '#facc15' },
+    { label: 'Good', color: '#34d399' },
+    { label: 'Strong 💪', color: '#22d3ee' },
+  ];
+  return { score: s, ...map[s] };
+};
+
+const PasswordInput = ({ value, onChange, placeholder = 'Password', showMeter = false, autoComplete, autoFocus }) => {
+  const [show, setShow] = useState(false);
+  const str = showMeter ? pwStrength(value) : null;
+  return (
+    <div>
+      <Inp icon={Lock} type={show ? 'text' : 'password'} placeholder={placeholder} value={value} onChange={onChange} autoComplete={autoComplete} autoFocus={autoFocus}
+        iconRight={
+          <button type="button" onClick={() => setShow(v => !v)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: show ? C.i : C.muted, display: 'flex', padding: 4, transition: 'color .2s' }}>
+            {show ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        }
+      />
+      {showMeter && value.length > 0 && (
+        <div>
+          <div className="pw-bar-wrap">
+            {[1,2,3,4,5].map(n => (
+              <div key={n} className="pw-bar" style={{
+                background: n <= str.score ? str.color : 'rgba(255,255,255,0.07)',
+                transform: n <= str.score ? 'scaleY(1.4)' : 'scaleY(1)',
+              }} />
+            ))}
+          </div>
+          <p className="pw-label" style={{ color: str.color }}>{str.label}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── ForgotPasswordPanel (overlays inside the auth card) ─────────────────────
+const ForgotPasswordPanel = ({ users, onClose, accentCol, accentGrad, isAdmin }) => {
+  const [step, setStep] = useState(1); // 1=username, 2=verify, 3=new password, 4=done
+  const [username, setUsername] = useState('');
+  const [foundUser, setFoundUser] = useState(null);
+  const [secAnswer, setSecAnswer] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Step 1 — find user by username
+  const handleFindUser = e => {
+    e.preventDefault(); setErr('');
+    const inp = username.trim().toLowerCase().replace(/\s+/g,'');
+    const u = users.find(u => {
+      const uname = (u.username||'').toLowerCase().replace(/\s+/g,'');
+      return uname === inp && (isAdmin ? u.role === 'admin' : true);
+    });
+    if (!u) return setErr(isAdmin ? 'No admin account with that username.' : 'No account found with that username.');
+    setFoundUser(u);
+    setStep(2);
+  };
+
+  // Step 2 — "verify identity" by confirming name (simple in-app identity check since no email)
+  const handleVerify = e => {
+    e.preventDefault(); setErr('');
+    // We verify by asking to type the account name or birthday
+    const nameCheck = secAnswer.trim().toLowerCase();
+    const fullName = (foundUser.name || '').toLowerCase();
+    const bday = foundUser.birthday || '';
+    if (nameCheck === fullName || (bday && nameCheck === bday)) {
+      setStep(3);
+    } else {
+      setErr('Verification failed. Make sure you typed your full name or birthday (YYYY-MM-DD) exactly.');
+    }
+  };
+
+  // Step 3 — set new password
+  const handleReset = async e => {
+    e.preventDefault(); setErr('');
+    if (newPass.length < 4) return setErr('Password must be at least 4 characters.');
+    if (newPass !== confirmPass) return setErr('Passwords do not match.');
+    setLoading(true);
+    try {
+      await updateDoc(dRef(COL.USERS, foundUser.id), { password: newPass });
+      setStep(4);
+    } catch {
+      setErr('Failed to update password. Try again.');
+    }
+    setLoading(false);
+  };
+
+  const STEPS = ['Find Account','Verify Identity','New Password','Done'];
+
+  return (
+    <div className="fp-overlay">
+      {/* Step progress dots */}
+      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:24 }}>
+        {STEPS.map((s,i) => (
+          <React.Fragment key={s}>
+            <div className="fp-step-dot" style={{
+              background: i+1 < step ? accentCol : i+1 === step ? accentCol : 'rgba(255,255,255,0.12)',
+              width: i+1 === step ? 24 : 8, borderRadius: 99,
+              boxShadow: i+1 === step ? `0 0 10px ${accentCol}88` : 'none',
+            }}/>
+            {i < 3 && <div style={{ flex:1, height:1, background: i+1 < step ? accentCol+'55' : 'rgba(255,255,255,0.07)', transition:'background .4s' }}/>}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Back button */}
+      {step < 4 && (
+        <button onClick={step === 1 ? onClose : () => { setStep(s => s-1); setErr(''); }}
+          className="btn btn-ghost btn-sm" style={{ alignSelf:'flex-start', marginBottom:18, gap:6 }}>
+          <ArrowLeft size={13}/>{step === 1 ? 'Back to Sign In' : 'Back'}
+        </button>
+      )}
+
+      {/* Step 1 — username */}
+      {step === 1 && (
+        <div className="fu">
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
+            <div style={{ width:38, height:38, borderRadius:11, background:`${accentCol}1a`, display:'flex', alignItems:'center', justifyContent:'center', color:accentCol }}><Key size={17}/></div>
+            <div>
+              <h3 style={{ fontFamily:"'Space Grotesk',sans-serif", fontWeight:700, fontSize:18, color:C.text }}>Forgot Password?</h3>
+              <p style={{ fontSize:12, color:C.muted, marginTop:2 }}>Enter your {isAdmin ? 'admin' : ''} username to begin</p>
+            </div>
+          </div>
+          {err && <div className="su" style={{ marginBottom:14, background:'rgba(248,113,113,.08)', border:'1px solid rgba(248,113,113,.25)', borderRadius:12, padding:'10px 14px', fontSize:12, color:C.r, fontWeight:600 }}>{err}</div>}
+          <form onSubmit={handleFindUser} style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            <Inp icon={AtSign} type="text" placeholder="Your username" value={username} onChange={e=>setUsername(e.target.value)} autoCapitalize="none" autoFocus />
+            <button type="submit" className="btn" style={{ width:'100%', padding:'14px', background:accentGrad, color:'white', gap:8, fontSize:14 }}>
+              Find My Account <ChevronRight size={16}/>
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Step 2 — verify identity */}
+      {step === 2 && (
+        <div className="fu">
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
+            <Avatar name={foundUser.name} size={44}/>
+            <div>
+              <h3 style={{ fontFamily:"'Space Grotesk',sans-serif", fontWeight:700, fontSize:17, color:C.text }}>{foundUser.name}</h3>
+              <p style={{ fontSize:12, color:C.muted, marginTop:2 }}>@{foundUser.username}</p>
+            </div>
+          </div>
+          <div style={{ background:`${accentCol}0d`, border:`1px solid ${accentCol}28`, borderRadius:14, padding:'12px 16px', marginBottom:16 }}>
+            <p style={{ fontSize:12.5, color:C.sub, lineHeight:1.6 }}>
+              To verify it's you, type your <strong style={{color:C.text}}>full name</strong> or <strong style={{color:C.text}}>birthday</strong> (YYYY-MM-DD) below.
+            </p>
+          </div>
+          {err && <div className="su" style={{ marginBottom:14, background:'rgba(248,113,113,.08)', border:'1px solid rgba(248,113,113,.25)', borderRadius:12, padding:'10px 14px', fontSize:12, color:C.r, fontWeight:600 }}>{err}</div>}
+          <form onSubmit={handleVerify} style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            <Inp icon={User} type="text" placeholder="Full name or birthday (YYYY-MM-DD)" value={secAnswer} onChange={e=>setSecAnswer(e.target.value)} autoFocus />
+            <button type="submit" className="btn" style={{ width:'100%', padding:'14px', background:accentGrad, color:'white', gap:8, fontSize:14 }}>
+              Verify Identity <ChevronRight size={16}/>
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Step 3 — new password */}
+      {step === 3 && (
+        <div className="fu">
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
+            <div style={{ width:38, height:38, borderRadius:11, background:`${accentCol}1a`, display:'flex', alignItems:'center', justifyContent:'center', color:accentCol }}><Lock size={17}/></div>
+            <div>
+              <h3 style={{ fontFamily:"'Space Grotesk',sans-serif", fontWeight:700, fontSize:18, color:C.text }}>Set New Password</h3>
+              <p style={{ fontSize:12, color:C.muted, marginTop:2 }}>For <strong style={{color:accentCol}}>@{foundUser.username}</strong></p>
+            </div>
+          </div>
+          {err && <div className="su" style={{ marginBottom:14, background:'rgba(248,113,113,.08)', border:'1px solid rgba(248,113,113,.25)', borderRadius:12, padding:'10px 14px', fontSize:12, color:C.r, fontWeight:600 }}>{err}</div>}
+          <form onSubmit={handleReset} style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            <PasswordInput value={newPass} onChange={e=>setNewPass(e.target.value)} placeholder="New password" showMeter autoFocus autoComplete="new-password" />
+            <PasswordInput value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} placeholder="Confirm new password" autoComplete="new-password" />
+            <button type="submit" disabled={loading} className="btn" style={{ width:'100%', padding:'14px', background:accentGrad, color:'white', gap:8, fontSize:14, marginTop:4 }}>
+              {loading ? <Loader size={16} className="spin"/> : <><Key size={15}/>Reset Password</>}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Step 4 — success */}
+      {step === 4 && (
+        <div className="fu" style={{ textAlign:'center', padding:'8px 0' }}>
+          <div style={{ width:64, height:64, borderRadius:'50%', background:`${accentCol}18`, border:`2px solid ${accentCol}44`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px', boxShadow:`0 0 30px ${accentCol}30` }}>
+            <CheckCircle size={32} style={{ color:accentCol }}/>
+          </div>
+          <h3 style={{ fontFamily:"'Space Grotesk',sans-serif", fontWeight:700, fontSize:20, color:C.text, marginBottom:8 }}>Password Reset!</h3>
+          <p style={{ fontSize:13, color:C.sub, lineHeight:1.6, marginBottom:24 }}>Your password has been updated successfully. You can now sign in with your new password.</p>
+          <button className="btn" onClick={onClose} style={{ width:'100%', padding:'14px', background:accentGrad, color:'white', gap:8, fontSize:14 }}>
+            <ArrowLeft size={15}/>Back to Sign In
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // AUTH VIEW — sign in / sign up, member / admin
 // ══════════════════════════════════════════════════════════════════════════════
 const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister, loadingState, error }) => {
-  const [role, setRole] = useState('member');        // 'member' | 'admin'
-  const [mode, setMode] = useState('signin');         // 'signin' | 'signup'
-  const [showPass, setShowPass] = useState(false);
-  const [showPass2, setShowPass2] = useState(false);
+  const [role, setRole] = useState('member');
+  const [mode, setMode] = useState('signin');
   const [regForm, setRegForm] = useState({ name: '', username: '', password: '', confirm: '', birthday: '' });
   const [regErr, setRegErr] = useState('');
   const [showRetry, setShowRetry] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
   const firstRun = users.length === 0;
 
   useEffect(() => { if (loadingState) { const t = setTimeout(() => setShowRetry(true), 9000); return () => clearTimeout(t); } }, [loadingState]);
@@ -734,7 +964,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
       <div style={{ position: 'absolute', width: 700, height: 700, borderRadius: '50%', background: isAdmin ? 'radial-gradient(circle,rgba(180,83,9,0.06),transparent 70%)' : 'radial-gradient(circle,rgba(79,70,229,0.07),transparent 70%)', top: '-20%', left: '-20%', animation: 'drift 14s ease-in-out infinite', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', width: 500, height: 500, borderRadius: '50%', background: isAdmin ? 'radial-gradient(circle,rgba(245,158,11,0.04),transparent 70%)' : 'radial-gradient(circle,rgba(34,211,238,0.04),transparent 70%)', bottom: '-15%', right: '-10%', animation: 'drift2 18s ease-in-out infinite', pointerEvents: 'none' }} />
 
-      {/* Left feature panel — hidden on small screens */}
+      {/* Left feature panel */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px 48px', maxWidth: 480, position: 'relative', zIndex: 1 }} className="fu">
         <div style={{ marginBottom: 48 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
@@ -754,7 +984,6 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
             ))}
           </div>
         </div>
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {[{ icon: <Activity size={16} />, title: 'Live Dashboard', sub: 'Real-time balance & transaction tracking' }, { icon: <Sparkles size={16} />, title: 'AI Reminders', sub: 'Generate smart payment nudges instantly' }, { icon: <Globe2 size={16} />, title: 'Group Management', sub: 'Invite members, manage events, chat live' }].map(f => (
             <div key={f.title} className="fu" style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
@@ -770,14 +999,25 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
 
       {/* Right auth card */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', position: 'relative', zIndex: 1, maxWidth: 520, margin: '0 auto' }}>
-        <div className="auth-card su" style={{ width: '100%', maxWidth: 420 }}>
+        <div className="auth-card su" style={{ width: '100%', maxWidth: 420, position: 'relative' }}>
           {/* Accent top bar */}
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: accentGrad, borderRadius: '28px 28px 0 0' }} />
+
+          {/* ── Forgot Password Overlay ── */}
+          {forgotOpen && (
+            <ForgotPasswordPanel
+              users={users}
+              onClose={() => setForgotOpen(false)}
+              accentCol={accentCol}
+              accentGrad={accentGrad}
+              isAdmin={isAdmin}
+            />
+          )}
 
           {/* Role selector */}
           <div className="fu" style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 18, padding: 5, gap: 5, marginBottom: 24 }}>
             {[{ v: 'member', icon: <User size={15} />, label: 'Member' }, { v: 'admin', icon: <ShieldCheck size={15} />, label: 'Admin' }].map(r => (
-              <button key={r.v} onClick={() => setRole(r.v)} className={`role-tab${r.v === role ? (r.v === 'admin' ? ' role-tab-admin-on' : ' role-tab-member-on') : ''}`}>
+              <button key={r.v} onClick={() => { setRole(r.v); setForgotOpen(false); }} className={`role-tab${r.v === role ? (r.v === 'admin' ? ' role-tab-admin-on' : ' role-tab-member-on') : ''}`}>
                 {r.icon}{r.label}
                 {r.v === role && <div style={{ width: 6, height: 6, borderRadius: '50%', background: accentCol, boxShadow: `0 0 10px ${accentCol}` }} />}
               </button>
@@ -788,7 +1028,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
           {!firstRun && (
             <div className="fu d1" style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 4, gap: 3, marginBottom: 26 }}>
               {[{ v: 'signin', label: 'Sign In' }, { v: 'signup', label: 'Create Account' }].map(m => (
-                <button key={m.v} onClick={() => { setMode(m.v); setRegErr(''); }} className={`auth-mode-btn${mode === m.v ? ' auth-mode-on' : ''}`}>{m.label}</button>
+                <button key={m.v} onClick={() => { setMode(m.v); setRegErr(''); setForgotOpen(false); }} className={`auth-mode-btn${mode === m.v ? ' auth-mode-on' : ''}`}>{m.label}</button>
               ))}
             </div>
           )}
@@ -808,7 +1048,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
             </p>
           </div>
 
-          {/* Error */}
+          {/* Error banner */}
           {(error || regErr) && (
             <div className="su" style={{ marginBottom: 18, background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 14, padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <AlertTriangle size={15} style={{ color: C.r, flexShrink: 0, marginTop: 1 }} />
@@ -816,7 +1056,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
             </div>
           )}
 
-          {/* Loading */}
+          {/* Loading state */}
           {loadingState ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 0', gap: 18 }}>
               <div style={{ position: 'relative' }}>
@@ -829,21 +1069,47 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
             /* ── Sign In Form ── */
             <form onSubmit={submitSignin} className="fu d3" style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
               <Inp icon={AtSign} type="text" placeholder="Username" value={loginForm.username} onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))} autoCapitalize="none" autoComplete="username" />
-              <Inp icon={Lock} type={showPass ? 'text' : 'password'} placeholder="Password" value={loginForm.password} onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))} autoComplete="current-password"
-                iconRight={<button type="button" onClick={() => setShowPass(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', padding: 4 }}>{showPass ? <EyeOff size={15} /> : <Eye size={15} />}</button>} />
+              <PasswordInput
+                value={loginForm.password}
+                onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))}
+                placeholder="Password"
+                autoComplete="current-password"
+              />
               <button type="submit" className={`btn ${isAdmin ? 'btn-admin' : 'btn-primary'} fu d4`} style={{ width: '100%', padding: '15px', fontSize: 15, marginTop: 4, gap: 10, letterSpacing: '.01em' }}>
                 Sign In as {isAdmin ? 'Admin' : 'Member'} <ChevronRight size={18} />
               </button>
+              {/* Forgot password link */}
+              {!firstRun && (
+                <button
+                  type="button"
+                  onClick={() => setForgotOpen(true)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: accentCol, fontFamily: 'var(--font)', fontWeight: 600, textAlign: 'center', marginTop: 2, padding: '4px 0', opacity: 0.85, transition: 'opacity .2s' }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '0.85'}
+                >
+                  <Key size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 5 }} />
+                  Forgot password?
+                </button>
+              )}
             </form>
           ) : (
             /* ── Sign Up Form ── */
             <form onSubmit={submitSignup} className="fu d3" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <Inp icon={User} type="text" placeholder="Full Name" value={regForm.name} onChange={e => setRegForm(p => ({ ...p, name: e.target.value }))} />
-              <Inp icon={AtSign} type="text" placeholder="Username" value={regForm.username} onChange={e => setRegForm(p => ({ ...p, username: e.target.value })) } autoCapitalize="none" />
-              <Inp icon={Lock} type={showPass ? 'text' : 'password'} placeholder="Password (min 4 chars)" value={regForm.password} onChange={e => setRegForm(p => ({ ...p, password: e.target.value }))}
-                iconRight={<button type="button" onClick={() => setShowPass(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', padding: 4 }}>{showPass ? <EyeOff size={15} /> : <Eye size={15} />}</button>} />
-              <Inp icon={Key} type={showPass2 ? 'text' : 'password'} placeholder="Confirm Password" value={regForm.confirm} onChange={e => setRegForm(p => ({ ...p, confirm: e.target.value }))}
-                iconRight={<button type="button" onClick={() => setShowPass2(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', padding: 4 }}>{showPass2 ? <EyeOff size={15} /> : <Eye size={15} />}</button>} />
+              <Inp icon={AtSign} type="text" placeholder="Username" value={regForm.username} onChange={e => setRegForm(p => ({ ...p, username: e.target.value }))} autoCapitalize="none" />
+              <PasswordInput
+                value={regForm.password}
+                onChange={e => setRegForm(p => ({ ...p, password: e.target.value }))}
+                placeholder="Password (min 4 chars)"
+                showMeter
+                autoComplete="new-password"
+              />
+              <PasswordInput
+                value={regForm.confirm}
+                onChange={e => setRegForm(p => ({ ...p, confirm: e.target.value }))}
+                placeholder="Confirm Password"
+                autoComplete="new-password"
+              />
               {!isAdmin && <Inp icon={Cake} type="date" value={regForm.birthday} onChange={e => setRegForm(p => ({ ...p, birthday: e.target.value }))} />}
               <button type="submit" className={`btn ${isAdmin ? 'btn-admin' : 'btn-primary'} fu d4`} style={{ width: '100%', padding: '15px', fontSize: 15, marginTop: 4, gap: 10 }}>
                 <UserPlus size={17} />Create {isAdmin ? 'Admin' : 'Member'} Account
@@ -1215,7 +1481,6 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
   const [payAmt, setPayAmt] = useState('');
   const [reportAmt, setReportAmt] = useState('');
   const [newPass, setNewPass] = useState('');
-  const [showPass, setShowPass] = useState(false);
   const [chatMode, setChatMode] = useState('public');
 
   const balance = getMemberBalance(appUser.id, wallet);
@@ -1393,12 +1658,19 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
 
       {/* Password Modal */}
       {passOpen && (
-        <Modal onClose={() => setPassOpen(false)} title="Change Password">
+        <Modal onClose={() => { setPassOpen(false); setNewPass(''); }} title="Change Password">
+          <p style={{ fontSize: 13, color: C.sub, marginBottom: 18, lineHeight: 1.6 }}>Choose a strong new password for your account.</p>
           <form onSubmit={handlePassChange} style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-            <Inp icon={Lock} type={showPass ? 'text' : 'password'} placeholder="New password (min 4 chars)" value={newPass} onChange={e => setNewPass(e.target.value)} autoFocus
-              iconRight={<button type="button" onClick={() => setShowPass(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', padding: 4 }}>{showPass ? <EyeOff size={15} /> : <Eye size={15} />}</button>} />
+            <PasswordInput
+              value={newPass}
+              onChange={e => setNewPass(e.target.value)}
+              placeholder="New password (min 4 chars)"
+              showMeter
+              autoFocus
+              autoComplete="new-password"
+            />
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-              <button type="button" className="btn btn-ghost" onClick={() => setPassOpen(false)} style={{ flex: 1 }}>Cancel</button>
+              <button type="button" className="btn btn-ghost" onClick={() => { setPassOpen(false); setNewPass(''); }} style={{ flex: 1 }}>Cancel</button>
               <button type="submit" className="btn btn-primary" style={{ flex: 2, gap: 8 }}><Key size={15} />Update Password</button>
             </div>
           </form>
@@ -1411,12 +1683,17 @@ const MemberDash = ({ appUser, handleLogout, getMemberBalance, transactions, upi
 // ══════════════════════════════════════════════════════════════════════════════
 // MEMBER DETAIL VIEW
 // ══════════════════════════════════════════════════════════════════════════════
-const MemberDetail = ({ users, selMember, transactions, appUser, txForm, setTxForm, addTx, setSelMember, setView, getMemberBalance, delTx }) => {
+const MemberDetail = ({ users, selMember, transactions, appUser, txForm, setTxForm, addTx, setSelMember, setView, getMemberBalance, delTx, resetPassword }) => {
   const member = users.find(u => u.id === selMember);
   const [cat, setCat] = useState('main');
   const [reminderModal, setReminderModal] = useState(false);
   const [reminder, setReminder] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [resetPassOpen, setResetPassOpen] = useState(false);
+  const [resetNewPass, setResetNewPass] = useState('');
+  const [resetConfirm, setResetConfirm] = useState('');
+  const [resetErr, setResetErr] = useState('');
+  const [resetDone, setResetDone] = useState(false);
 
   if (!member) return null;
 
@@ -1427,15 +1704,33 @@ const MemberDetail = ({ users, selMember, transactions, appUser, txForm, setTxFo
 
   const genReminder = async () => { setAiLoading(true); setReminderModal(true); const t = await callGemini(`WhatsApp payment reminder for ${member.name}: owes ₹${Math.abs(bal).toFixed(2)} in ${cat} dues. Friendly, concise, under 50 words, no hashtags.`); setReminder(t); setAiLoading(false); };
 
+  const handleAdminResetPass = async e => {
+    e.preventDefault(); setResetErr('');
+    if (resetNewPass.length < 4) return setResetErr('Password must be at least 4 characters.');
+    if (resetNewPass !== resetConfirm) return setResetErr('Passwords do not match.');
+    try {
+      await resetPassword(member.id, resetNewPass);
+      setResetDone(true);
+      setResetNewPass(''); setResetConfirm('');
+    } catch { setResetErr('Failed to reset password. Try again.'); }
+  };
+
   return (
     <div style={{ background: C.bg, minHeight: '100vh', backgroundImage: 'radial-gradient(ellipse at 50% -10%,rgba(129,140,248,.07),transparent 55%)' }}>
       <div className="topnav">
         <div style={{ maxWidth: 740, margin: '0 auto', padding: '0 24px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button className="btn btn-ghost btn-sm" onClick={() => { setSelMember(null); setView('dashboard'); }} style={{ gap: 7 }}><ArrowLeft size={14} />Back</button>
-          {appUser.role === 'admin' && bal > 0 && (
-            <button onClick={genReminder} className="btn btn-sm" style={{ gap: 6, background: 'rgba(244,114,182,.1)', border: '1px solid rgba(244,114,182,.25)', color: C.pk }}>
-              {aiLoading ? <Loader size={11} className="spin" /> : <Sparkles size={11} />}AI Reminder
-            </button>
+          {appUser.role === 'admin' && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { setResetPassOpen(true); setResetDone(false); setResetErr(''); }} className="btn btn-sm" style={{ gap: 6, background: 'rgba(129,140,248,.1)', border: '1px solid rgba(129,140,248,.25)', color: C.i }}>
+                <Key size={11} />Reset Password
+              </button>
+              {bal > 0 && (
+                <button onClick={genReminder} className="btn btn-sm" style={{ gap: 6, background: 'rgba(244,114,182,.1)', border: '1px solid rgba(244,114,182,.25)', color: C.pk }}>
+                  {aiLoading ? <Loader size={11} className="spin" /> : <Sparkles size={11} />}AI Reminder
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -1502,6 +1797,59 @@ const MemberDetail = ({ users, selMember, transactions, appUser, txForm, setTxFo
                 <button className="btn btn-ghost" onClick={() => setReminderModal(false)} style={{ flex: 1 }}>Close</button>
                 <button className="btn btn-primary" onClick={() => { navigator.clipboard?.writeText(reminder); }} style={{ flex: 2, gap: 7 }}><Check size={14} />Copy to Clipboard</button>
               </div>
+            </>
+          )}
+        </Modal>
+      )}
+
+      {/* ── Admin Reset Member Password Modal ── */}
+      {resetPassOpen && (
+        <Modal onClose={() => { setResetPassOpen(false); setResetDone(false); setResetErr(''); setResetNewPass(''); setResetConfirm(''); }} title="Reset Member Password">
+          {resetDone ? (
+            <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(52,211,153,.12)', border: '2px solid rgba(52,211,153,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 0 28px rgba(52,211,153,.25)' }}>
+                <CheckCircle size={28} style={{ color: C.g }} />
+              </div>
+              <p style={{ fontWeight: 700, fontSize: 16, color: C.text, marginBottom: 6 }}>Password Reset!</p>
+              <p style={{ fontSize: 13, color: C.sub, marginBottom: 22, lineHeight: 1.6 }}>
+                <strong style={{ color: C.text }}>{member.name}</strong>'s password has been updated successfully.
+              </p>
+              <button className="btn btn-primary" onClick={() => { setResetPassOpen(false); setResetDone(false); }} style={{ width: '100%' }}>Done</button>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, padding: '12px 14px', background: 'rgba(129,140,248,.06)', border: '1px solid rgba(129,140,248,.15)', borderRadius: 14 }}>
+                <Avatar name={member.name} size={38} />
+                <div>
+                  <p style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{member.name}</p>
+                  <p style={{ fontSize: 11, color: C.muted, fontFamily: 'var(--mono)' }}>@{member.username}</p>
+                </div>
+              </div>
+              {resetErr && (
+                <div style={{ marginBottom: 14, background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.25)', borderRadius: 12, padding: '10px 14px', fontSize: 12, color: C.r, fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <AlertTriangle size={13} />{resetErr}
+                </div>
+              )}
+              <form onSubmit={handleAdminResetPass} style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+                <PasswordInput
+                  value={resetNewPass}
+                  onChange={e => setResetNewPass(e.target.value)}
+                  placeholder="New password (min 4 chars)"
+                  showMeter
+                  autoFocus
+                  autoComplete="new-password"
+                />
+                <PasswordInput
+                  value={resetConfirm}
+                  onChange={e => setResetConfirm(e.target.value)}
+                  placeholder="Confirm new password"
+                  autoComplete="new-password"
+                />
+                <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => { setResetPassOpen(false); setResetErr(''); }} style={{ flex: 1 }}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 2, gap: 8 }}><Key size={14} />Reset Password</button>
+                </div>
+              </form>
             </>
           )}
         </Modal>
@@ -1596,6 +1944,7 @@ const App = () => {
   const sendMsg = d => addDoc(col(COL.MSGS), { ...d, createdAt: serverTimestamp(), sender: appUser.username });
   const sendChat = d => addDoc(col(COL.CHATS), { ...d, senderId: appUser.id, senderName: appUser.name, createdAt: serverTimestamp() });
   const changePass = p => { if (!p) return; updateDoc(dRef(COL.USERS, appUser.id), { password: p }).then(() => alert('Password updated!')); };
+  const resetPassword = (uid, p) => updateDoc(dRef(COL.USERS, uid), { password: p });
   const delTx = id => { if (window.confirm('Delete transaction?')) deleteDoc(dRef(COL.TX, id)); };
   const logout = () => { setAppUser(null); setView('auth'); };
 
@@ -1605,7 +1954,7 @@ const App = () => {
       {view === 'auth' && <AuthView users={users} loginForm={loginForm} setLoginForm={setLoginF} handleLogin={handleLogin} handleRegister={handleRegister} loadingState={loading} error={error} />}
       {view === 'dashboard' && appUser?.role === 'admin' && <AdminDash users={users} handleLogout={logout} upiId={upiId} setUpiId={setUpiId} saveUpiId={saveUpi} newMemForm={newMemForm} setNewMemForm={setNewMem} createMember={createMember} populateDefaults={populateDefs} getMemberBalance={getBal} setSelMember={setSel} setView={setView} transactions={transactions} sendMessage={sendMsg} handleApproval={approve} isGroceryEnabled={groceryOn} toggleGrocery={toggleGroc} chatMessages={chatMsgs} sendChat={sendChat} appUser={appUser} />}
       {view === 'dashboard' && appUser?.role === 'member' && <MemberDash appUser={appUser} handleLogout={logout} getMemberBalance={getBal} transactions={transactions} upiId={upiId} changePassword={changePass} messages={messages} reportPayment={reportPay} isGroceryEnabled={groceryOn} chatMessages={chatMsgs} sendChat={sendChat} />}
-      {view === 'member-detail' && <MemberDetail users={users} selMember={selMember} transactions={transactions} appUser={appUser} txForm={txForm} setTxForm={setTxForm} addTx={addTx} setSelMember={setSel} setView={setView} getMemberBalance={getBal} delTx={delTx} />}
+      {view === 'member-detail' && <MemberDetail users={users} selMember={selMember} transactions={transactions} appUser={appUser} txForm={txForm} setTxForm={setTxForm} addTx={addTx} setSelMember={setSel} setView={setView} getMemberBalance={getBal} delTx={delTx} resetPassword={resetPassword} />}
     </div>
   );
 };
