@@ -262,8 +262,8 @@ button { cursor:pointer; }
 /* ── PREMIUM INPUT ── */
 .inp {
   width:100%;
-  background:rgba(255,255,255,0.055);
-  border:1.5px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.08);
+  border:1.5px solid rgba(255,255,255,0.18);
   border-radius:14px;
   color:#ffffff;
   padding:14px 16px;
@@ -275,8 +275,8 @@ button { cursor:pointer; }
   letter-spacing:0.01em;
 }
 .inp:hover {
-  border-color:rgba(255,255,255,0.2);
-  background:rgba(255,255,255,0.07);
+  border-color:rgba(255,255,255,0.32);
+  background:rgba(255,255,255,0.11);
 }
 .inp:focus {
   border-color:rgba(124,109,250,0.8);
@@ -284,11 +284,11 @@ button { cursor:pointer; }
   box-shadow:0 0 0 4px rgba(124,109,250,0.12), 0 0 32px rgba(124,109,250,0.08);
   color:#ffffff;
 }
-.inp::placeholder { color:rgba(255,255,255,0.28); font-weight:400; }
+.inp::placeholder { color:rgba(255,255,255,0.45); font-weight:400; }
 .inp-icon   { padding-left:46px; }
 .inp-icon-r { padding-right:46px; }
 .field-wrap { position:relative; width:100%; }
-.fi-l { position:absolute; left:15px; top:50%; transform:translateY(-50%); pointer-events:none; color:rgba(255,255,255,0.3); transition:color .2s; }
+.fi-l { position:absolute; left:15px; top:50%; transform:translateY(-50%); pointer-events:none; color:rgba(255,255,255,0.5); transition:color .2s; }
 .field-wrap:focus-within .fi-l { color:rgba(124,109,250,0.8); }
 .fi-r { position:absolute; right:14px; top:50%; transform:translateY(-50%); }
 
@@ -511,9 +511,9 @@ button { cursor:pointer; }
   content:'';
   position:absolute; inset:0;
   background:
-    radial-gradient(ellipse 80% 60% at 20% 50%, rgba(79,61,240,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 30%, rgba(0,212,255,0.06) 0%, transparent 50%),
-    radial-gradient(ellipse 40% 40% at 60% 80%, rgba(240,107,255,0.05) 0%, transparent 50%);
+    radial-gradient(ellipse 80% 60% at 20% 50%, rgba(79,61,240,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 30%, rgba(0,212,255,0.1) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 40% at 60% 80%, rgba(240,107,255,0.08) 0%, transparent 50%);
   pointer-events:none;
 }
 
@@ -521,9 +521,9 @@ button { cursor:pointer; }
 .auth-card {
   background:
     linear-gradient(145deg,
-      rgba(20,15,50,0.96) 0%,
-      rgba(12,9,32,0.98) 40%,
-      rgba(8,6,22,0.99) 100%);
+      rgba(24,18,60,0.97) 0%,
+      rgba(16,11,42,0.98) 40%,
+      rgba(10,7,28,0.99) 100%);
   border:1px solid rgba(255,255,255,0.1);
   border-radius:28px;
   padding:36px;
@@ -552,7 +552,7 @@ button { cursor:pointer; }
     rgba(124,109,250,0.9) 65%,
     rgba(240,107,255,0.7) 85%,
     transparent 100%);
-  box-shadow:0 0 30px rgba(124,109,250,0.5), 0 0 60px rgba(0,212,255,0.2);
+  box-shadow:0 0 40px rgba(124,109,250,0.8), 0 0 80px rgba(0,212,255,0.35), 0 0 120px rgba(124,109,250,0.2);
   transform-origin:left;
   animation:topBarSlide .7s cubic-bezier(.16,1,.3,1) .2s both;
 }
@@ -560,8 +560,8 @@ button { cursor:pointer; }
 /* Subtle inner glow */
 .auth-card::after {
   content:'';
-  position:absolute; top:0; left:0; right:0; height:200px;
-  background:radial-gradient(ellipse at 50% 0%, rgba(124,109,250,0.1) 0%, transparent 70%);
+  position:absolute; top:0; left:0; right:0; height:220px;
+  background:radial-gradient(ellipse at 50% 0%, rgba(124,109,250,0.18) 0%, transparent 70%);
   pointer-events:none;
 }
 
@@ -574,7 +574,7 @@ button { cursor:pointer; }
     rgba(255,180,66,0.9) 65%,
     rgba(255,100,20,0.7) 85%,
     transparent 100%);
-  box-shadow:0 0 30px rgba(255,140,66,0.5), 0 0 60px rgba(255,140,66,0.2);
+  box-shadow:0 0 40px rgba(255,140,66,0.8), 0 0 80px rgba(255,140,66,0.35), 0 0 120px rgba(255,140,66,0.2);
 }
 .auth-card.admin-card::after {
   background:radial-gradient(ellipse at 50% 0%, rgba(196,80,0,0.1) 0%, transparent 70%);
@@ -622,24 +622,24 @@ button { cursor:pointer; }
   color:rgba(255,255,255,0.65);
 }
 .role-tab-member-on {
-  background:linear-gradient(135deg, rgba(79,61,240,0.35) 0%, rgba(124,109,250,0.2) 100%) !important;
-  border-color:rgba(124,109,250,0.5) !important;
-  color:#ddd8ff !important;
+  background:linear-gradient(135deg, rgba(79,61,240,0.45) 0%, rgba(124,109,250,0.3) 100%) !important;
+  border-color:rgba(164,147,251,0.75) !important;
+  color:#ffffff !important;
   box-shadow:
-    0 0 0 1px rgba(124,109,250,0.15),
-    0 4px 20px rgba(79,61,240,0.3),
-    inset 0 1px 0 rgba(255,255,255,0.12) !important;
-  text-shadow:0 0 20px rgba(180,170,255,0.5) !important;
+    0 0 0 1px rgba(124,109,250,0.25),
+    0 4px 24px rgba(79,61,240,0.45),
+    inset 0 1px 0 rgba(255,255,255,0.2) !important;
+  text-shadow:0 0 20px rgba(200,190,255,0.8), 0 0 40px rgba(124,109,250,0.5) !important;
 }
 .role-tab-admin-on {
-  background:linear-gradient(135deg, rgba(196,80,0,0.38) 0%, rgba(255,140,66,0.22) 100%) !important;
-  border-color:rgba(255,140,66,0.52) !important;
-  color:#ffe4c0 !important;
+  background:linear-gradient(135deg, rgba(196,80,0,0.5) 0%, rgba(255,140,66,0.32) 100%) !important;
+  border-color:rgba(255,160,80,0.8) !important;
+  color:#ffffff !important;
   box-shadow:
-    0 0 0 1px rgba(255,140,66,0.15),
-    0 4px 20px rgba(196,80,0,0.3),
-    inset 0 1px 0 rgba(255,255,255,0.12) !important;
-  text-shadow:0 0 20px rgba(255,220,160,0.5) !important;
+    0 0 0 1px rgba(255,140,66,0.25),
+    0 4px 24px rgba(196,80,0,0.45),
+    inset 0 1px 0 rgba(255,255,255,0.2) !important;
+  text-shadow:0 0 20px rgba(255,230,180,0.8), 0 0 40px rgba(255,140,66,0.5) !important;
 }
 
 /* ── MODE TOGGLE (Sign In / Create Account) ── */
@@ -667,18 +667,19 @@ button { cursor:pointer; }
   transition:all .22s cubic-bezier(.16,1,.3,1);
   font-family:var(--font);
   background:transparent;
-  color:rgba(255,255,255,0.3);
+  color:rgba(255,255,255,0.65);
   letter-spacing:0.01em;
 }
 .auth-mode-btn:hover {
-  color:rgba(255,255,255,0.65);
-  background:rgba(255,255,255,0.05);
+  color:#ffffff;
+  background:rgba(255,255,255,0.1);
 }
 .auth-mode-on {
-  background:rgba(255,255,255,0.09) !important;
-  border-color:rgba(255,255,255,0.16) !important;
+  background:rgba(255,255,255,0.14) !important;
+  border-color:rgba(255,255,255,0.28) !important;
   color:#ffffff !important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.3) !important;
+  text-shadow:0 0 12px rgba(255,255,255,0.4) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.15), 0 2px 12px rgba(0,0,0,0.4) !important;
 }
 
 /* ── AUTH HEADER ── */
@@ -750,13 +751,14 @@ button { cursor:pointer; }
   font-size:11px; font-weight:600;
   background:rgba(255,255,255,0.06);
   border:1px solid rgba(255,255,255,0.12);
-  color:rgba(255,255,255,0.7);
+  color:rgba(255,255,255,0.88);
   transition:all .2s;
 }
 .feat-pill:hover {
-  background:rgba(255,255,255,0.1);
-  border-color:rgba(255,255,255,0.2);
+  background:rgba(255,255,255,0.14);
+  border-color:rgba(255,255,255,0.3);
   color:#ffffff;
+  text-shadow:0 0 10px rgba(255,255,255,0.3);
 }
 
 /* ── LEFT PANEL ── */
@@ -1301,7 +1303,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
           </div>
           <div>
             <div style={{ fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:800, color:'#ffffff', letterSpacing:'-.02em' }}>Smart Manager</div>
-            <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)', fontWeight:600, letterSpacing:'.08em', textTransform:'uppercase', marginTop:1 }}>Dues · Payments · Chat</div>
+            <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', fontWeight:600, letterSpacing:'.08em', textTransform:'uppercase', marginTop:1 }}>Dues · Payments · Chat</div>
           </div>
         </div>
 
@@ -1313,7 +1315,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
               intelligently.
             </span>
           </h1>
-          <p style={{ fontSize:15.5, color:'rgba(255,255,255,0.5)', lineHeight:1.75, maxWidth:360 }}>
+          <p style={{ fontSize:15.5, color:'rgba(255,255,255,0.72)', lineHeight:1.75, maxWidth:360 }}>
             Track payments, send invitations, chat with members — all in one beautiful interface.
           </p>
         </div>
@@ -1334,7 +1336,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
               </div>
               <div>
                 <p style={{ fontWeight:700, fontSize:13.5, color:'#ffffff', marginBottom:3 }}>{f.title}</p>
-                <p style={{ fontSize:12, color:'rgba(255,255,255,0.42)', lineHeight:1.5 }}>{f.sub}</p>
+                <p style={{ fontSize:12, color:'rgba(255,255,255,0.62)', lineHeight:1.5 }}>{f.sub}</p>
               </div>
             </div>
           ))}
@@ -1402,7 +1404,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
               <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:19, color:'#ffffff', letterSpacing:'-.02em', lineHeight:1.2 }}>
                 {firstRun ? 'Create Admin' : mode==='signup' ? `New ${isAdmin?'Admin':'Member'}` : `${isAdmin?'Admin':'Member'} Sign In`}
               </h2>
-              <p style={{ fontSize:12.5, color:'rgba(255,255,255,0.45)', marginTop:4, lineHeight:1.4 }}>
+              <p style={{ fontSize:12.5, color:'rgba(255,255,255,0.65)', marginTop:4, lineHeight:1.4 }}>
                 {firstRun ? 'Set up your administrator account' : mode==='signup' ? `Register a new ${isAdmin?'admin':'member'} account` : 'Enter your credentials to continue'}
               </p>
             </div>
@@ -1455,7 +1457,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
                   type="button"
                   onClick={()=>setForgotOpen(true)}
                   className="forgot-link"
-                  style={{ color:accentCol, opacity:0.75 }}
+                  style={{ color:accentCol, opacity:1, fontWeight:700 }}
                 >
                   <Key size={11}/>Forgot password?
                 </button>
@@ -1481,7 +1483,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
           )}
 
           {/* ── FOOTER ── */}
-          <p className="fu d5" style={{ textAlign:'center', fontSize:11, color:'rgba(255,255,255,0.22)', marginTop:24, lineHeight:1.7, letterSpacing:'0.02em' }}>
+          <p className="fu d5" style={{ textAlign:'center', fontSize:11, color:'rgba(255,255,255,0.4)', marginTop:24, lineHeight:1.7, letterSpacing:'0.02em' }}>
             Secured with Firebase · Smart Manager © 2025
           </p>
         </div>
