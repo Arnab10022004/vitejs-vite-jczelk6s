@@ -252,27 +252,28 @@ button { cursor:pointer; }
 /* ── input ── */
 .inp {
   width:100%;
-  background:rgba(255,255,255,0.035);
-  border:1px solid rgba(255,255,255,0.07);
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.13);
   border-radius:var(--rad-sm);
-  color:var(--text);
-  padding:13px 16px;
-  font-size:14px;
+  color:#ffffff;
+  padding:14px 16px;
+  font-size:14.5px;
   font-family:var(--font);
   font-weight:500;
   outline:none;
   transition:border-color .2s, background .2s, box-shadow .2s;
 }
 .inp:focus {
-  border-color:rgba(124,109,250,0.6);
-  background:rgba(124,109,250,0.05);
-  box-shadow:0 0 0 3px rgba(124,109,250,0.12), 0 0 20px rgba(124,109,250,0.08);
+  border-color:rgba(124,109,250,0.75);
+  background:rgba(124,109,250,0.09);
+  box-shadow:0 0 0 3.5px rgba(124,109,250,0.18), 0 0 28px rgba(124,109,250,0.12);
+  color:#ffffff;
 }
-.inp::placeholder { color:rgba(120,133,176,0.45); }
+.inp::placeholder { color:rgba(255,255,255,0.3); font-weight:400; }
 .inp-icon   { padding-left:46px; }
 .inp-icon-r { padding-right:46px; }
 .field-wrap { position:relative; width:100%; }
-.fi-l { position:absolute; left:15px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--muted); }
+.fi-l { position:absolute; left:15px; top:50%; transform:translateY(-50%); pointer-events:none; color:rgba(255,255,255,0.35); }
 .fi-r { position:absolute; right:14px; top:50%; transform:translateY(-50%); }
 
 /* ── buttons ── */
@@ -478,15 +479,26 @@ button { cursor:pointer; }
 
 /* ── auth page ── */
 .auth-card {
-  background:rgba(6,8,18,0.97);
-  border:1px solid rgba(255,255,255,0.085);
-  border-radius:26px; padding:36px;
-  box-shadow:0 50px 100px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.05);
+  background:linear-gradient(160deg,rgba(16,12,38,0.99) 0%,rgba(8,6,22,0.99) 100%);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:28px; padding:38px;
+  box-shadow:
+    0 0 0 1px rgba(124,109,250,0.1),
+    0 40px 80px rgba(0,0,0,0.88),
+    0 0 80px rgba(124,109,250,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    inset 0 -1px 0 rgba(0,0,0,0.5);
   position:relative; overflow:hidden;
 }
 .auth-card::before {
-  content:''; position:absolute; top:0; left:0; right:0; height:1px;
-  background:linear-gradient(90deg,transparent,rgba(124,109,250,0.7),rgba(0,212,255,0.5),transparent);
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,transparent 0%,rgba(124,109,250,1) 25%,rgba(0,212,255,0.9) 55%,rgba(240,107,255,0.8) 80%,transparent 100%);
+  box-shadow:0 0 24px rgba(124,109,250,0.7), 0 0 48px rgba(124,109,250,0.3);
+}
+.auth-card::after {
+  content:''; position:absolute; top:0; left:0; right:0; bottom:0;
+  background:radial-gradient(ellipse at 50% 0%,rgba(124,109,250,0.09) 0%,transparent 60%);
+  pointer-events:none; border-radius:inherit;
 }
 
 .role-tab {
@@ -494,18 +506,22 @@ button { cursor:pointer; }
   display:flex; align-items:center; justify-content:center; gap:8px;
   border:1px solid transparent; cursor:pointer;
   transition:all .25s cubic-bezier(.16,1,.3,1); font-family:var(--font);
-  background:transparent; color:var(--muted);
+  background:transparent; color:rgba(255,255,255,0.4); letter-spacing:0.01em;
 }
-.role-tab:hover { background:rgba(255,255,255,0.05); color:var(--sub); }
+.role-tab:hover { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.78); }
 .role-tab-member-on {
-  background:linear-gradient(135deg,rgba(79,61,240,0.22),rgba(124,109,250,0.12))!important;
-  border-color:rgba(124,109,250,0.45)!important; color:#a393fb!important;
-  box-shadow:0 0 28px rgba(79,61,240,0.14)!important;
+  background:linear-gradient(135deg,rgba(79,61,240,0.32),rgba(124,109,250,0.2))!important;
+  border-color:rgba(124,109,250,0.6)!important;
+  color:#cdc4ff!important;
+  box-shadow:0 0 30px rgba(79,61,240,0.25), inset 0 1px 0 rgba(255,255,255,0.12)!important;
+  text-shadow:0 0 16px rgba(196,180,255,0.55)!important;
 }
 .role-tab-admin-on {
-  background:linear-gradient(135deg,rgba(180,83,9,0.22),rgba(255,140,66,0.12))!important;
-  border-color:rgba(255,140,66,0.45)!important; color:#ffaf6b!important;
-  box-shadow:0 0 28px rgba(255,140,66,0.14)!important;
+  background:linear-gradient(135deg,rgba(196,80,0,0.32),rgba(255,140,66,0.2))!important;
+  border-color:rgba(255,140,66,0.6)!important;
+  color:#ffd0a0!important;
+  box-shadow:0 0 30px rgba(255,140,66,0.25), inset 0 1px 0 rgba(255,255,255,0.12)!important;
+  text-shadow:0 0 16px rgba(255,208,160,0.55)!important;
 }
 
 .auth-mode-btn {
@@ -513,16 +529,16 @@ button { cursor:pointer; }
   display:flex; align-items:center; justify-content:center; gap:6px;
   border:1px solid transparent; cursor:pointer;
   transition:all .22s cubic-bezier(.16,1,.3,1); font-family:var(--font);
-  background:transparent; color:var(--muted);
+  background:transparent; color:rgba(255,255,255,0.36); letter-spacing:0.01em;
 }
-.auth-mode-btn:hover { color:var(--sub); }
-.auth-mode-on { background:rgba(255,255,255,0.07)!important; border-color:rgba(255,255,255,0.12)!important; color:var(--text)!important; }
+.auth-mode-btn:hover { color:rgba(255,255,255,0.75); background:rgba(255,255,255,0.06); }
+.auth-mode-on { background:rgba(255,255,255,0.1)!important; border-color:rgba(255,255,255,0.2)!important; color:#ffffff!important; box-shadow:inset 0 1px 0 rgba(255,255,255,0.1)!important; }
 
 .feat-pill {
   display:inline-flex; align-items:center; gap:5px;
   padding:4px 12px; border-radius:99px; font-size:11px; font-weight:600;
-  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
-  color:var(--sub);
+  background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.72);
 }
 
 /* ── hex grid background ── */
@@ -897,7 +913,7 @@ const ForgotPasswordPanel = ({ users, onClose, accentCol, accentGrad, isAdmin })
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
             <div style={{ width:38, height:38, borderRadius:11, background:`${accentCol}18`, display:'flex', alignItems:'center', justifyContent:'center', color:accentCol }}><Key size={17}/></div>
             <div>
-              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:C.text }}>Forgot Password?</h3>
+              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:'#ffffff' }}>Forgot Password?</h3>
               <p style={{ fontSize:12, color:C.muted, marginTop:2 }}>Enter your {isAdmin?'admin ':''} username to begin</p>
             </div>
           </div>
@@ -938,7 +954,7 @@ const ForgotPasswordPanel = ({ users, onClose, accentCol, accentGrad, isAdmin })
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
             <div style={{ width:38, height:38, borderRadius:11, background:`${accentCol}18`, display:'flex', alignItems:'center', justifyContent:'center', color:accentCol }}><Lock size={17}/></div>
             <div>
-              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:C.text }}>Set New Password</h3>
+              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:'#ffffff' }}>Set New Password</h3>
               <p style={{ fontSize:12, color:C.muted, marginTop:2 }}>For <strong style={{color:accentCol}}>@{foundUser.username}</strong></p>
             </div>
           </div>
@@ -1020,13 +1036,13 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
             <div style={{ width:46, height:46, borderRadius:15, background:accentGrad, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 0 28px ${accentCol}55, inset 0 1px 0 rgba(255,255,255,0.2)` }}>
               <DollarSign size={22} color="white"/>
             </div>
-            <span style={{ fontFamily:"'Syne',sans-serif", fontSize:19, fontWeight:800, color:C.text, letterSpacing:'-.02em' }}>Smart Manager</span>
+            <span style={{ fontFamily:"'Syne',sans-serif", fontSize:19, fontWeight:800, color:'#ffffff', letterSpacing:'-.02em' }}>Smart Manager</span>
           </div>
-          <h1 style={{ fontFamily:"'Syne',sans-serif", fontSize:42, fontWeight:800, color:C.text, lineHeight:1.1, letterSpacing:'-.03em', marginBottom:18 }}>
+          <h1 style={{ fontFamily:"'Syne',sans-serif", fontSize:42, fontWeight:800, color:'#ffffff', lineHeight:1.1, letterSpacing:'-.03em', marginBottom:18 }}>
             Manage dues<br/>
             <span style={{ backgroundImage:accentGrad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>intelligently</span>
           </h1>
-          <p style={{ fontSize:15, color:C.sub, lineHeight:1.75, marginBottom:32 }}>Track payments, send invitations, chat with members — all in one beautiful interface.</p>
+          <p style={{ fontSize:15, color:'rgba(255,255,255,0.6)', lineHeight:1.75, marginBottom:32 }}>Track payments, send invitations, chat with members — all in one beautiful interface.</p>
           <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
             {['AI-powered','Real-time','UPI Payments','Group Chat','Event Invites'].map(f => (
               <span key={f} className="feat-pill"><Zap size={10} style={{ color:accentCol }}/>{f}</span>
@@ -1043,7 +1059,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
               <div style={{ width:36, height:36, borderRadius:10, background:`${accentCol}18`, display:'flex', alignItems:'center', justifyContent:'center', color:accentCol, flexShrink:0, boxShadow:`0 0 16px ${accentCol}20` }}>{f.icon}</div>
               <div>
                 <p style={{ fontWeight:700, fontSize:13, color:C.text, marginBottom:3 }}>{f.title}</p>
-                <p style={{ fontSize:12, color:C.muted }}>{f.sub}</p>
+                <p style={{ fontSize:12, color:'rgba(255,255,255,0.45)' }}>{f.sub}</p>
               </div>
             </div>
           ))}
@@ -1058,7 +1074,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
           {forgotOpen && <ForgotPasswordPanel users={users} onClose={()=>setForgotOpen(false)} accentCol={accentCol} accentGrad={accentGrad} isAdmin={isAdmin}/>}
 
           {/* Role selector */}
-          <div className="fu" style={{ display:'flex', background:'rgba(255,255,255,0.025)', border:'1px solid rgba(255,255,255,0.065)', borderRadius:18, padding:5, gap:5, marginBottom:24 }}>
+          <div className="fu" style={{ display:'flex', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:18, padding:5, gap:5, marginBottom:24 }}>
             {[{v:'member',icon:<User size={15}/>,label:'Member'},{v:'admin',icon:<ShieldCheck size={15}/>,label:'Admin'}].map(r => (
               <button key={r.v} onClick={()=>{setRole(r.v);setForgotOpen(false);setRegErr('');setRegSuccess('');}} className={`role-tab${r.v===role?(r.v==='admin'?' role-tab-admin-on':' role-tab-member-on'):''}`}>
                 {r.icon}{r.label}
@@ -1069,7 +1085,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
 
           {/* Mode selector */}
           {!firstRun && (
-            <div className="fu d1" style={{ display:'flex', background:'rgba(255,255,255,0.025)', border:'1px solid rgba(255,255,255,0.055)', borderRadius:14, padding:4, gap:3, marginBottom:26 }}>
+            <div className="fu d1" style={{ display:'flex', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:14, padding:4, gap:3, marginBottom:26 }}>
               {[{v:'signin',label:'Sign In'},{v:'signup',label:'Create Account'}].map(m => (
                 <button key={m.v} onClick={()=>{setMode(m.v);setRegErr('');setRegSuccess('');setForgotOpen(false);}} className={`auth-mode-btn${mode===m.v?' auth-mode-on':''}`}>{m.label}</button>
               ))}
@@ -1082,11 +1098,11 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
               <div style={{ width:34, height:34, borderRadius:10, background:`${accentCol}18`, display:'flex', alignItems:'center', justifyContent:'center', color:accentCol, boxShadow:`0 0 16px ${accentCol}25` }}>
                 {isAdmin?<ShieldCheck size={16}/>:mode==='signup'?<UserPlus size={16}/>:<User size={16}/>}
               </div>
-              <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:C.text }}>
+              <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:'#ffffff' }}>
                 {firstRun?'Create Admin':mode==='signup'?`New ${isAdmin?'Admin':'Member'}`:`${isAdmin?'Admin':'Member'} Sign In`}
               </h2>
             </div>
-            <p style={{ fontSize:12, color:C.muted, paddingLeft:2 }}>
+            <p style={{ fontSize:12.5, color:'rgba(255,255,255,0.55)', paddingLeft:2 }}>
               {firstRun?'Set up your administrator account':mode==='signup'?`Register a new ${isAdmin?'admin':'member'} account`:'Enter your credentials to continue'}
             </p>
           </div>
@@ -1133,7 +1149,7 @@ const AuthView = ({ users, loginForm, setLoginForm, handleLogin, handleRegister,
             </form>
           )}
 
-          <p className="fu d5" style={{ textAlign:'center', fontSize:11, color:C.muted, marginTop:22, lineHeight:1.7 }}>
+          <p className="fu d5" style={{ textAlign:'center', fontSize:11, color:'rgba(255,255,255,0.35)', marginTop:22, lineHeight:1.7 }}>
             Secured with Firebase · Smart Manager © 2025
           </p>
         </div>
@@ -1168,7 +1184,7 @@ const AdminDash = ({ users, handleLogout, upiId, setUpiId, saveUpiId, newMemForm
   const filteredTx = useMemo(() => filterCat==='all'?transactions:transactions.filter(t=>(t.category||'main')===filterCat), [transactions, filterCat]);
 
   const doSendChat = t => { if(chatMode==='public') sendChat({text:t,type:'public'}); else if(selPriv) sendChat({text:t,type:'private',targetId:selPriv.id}); };
- const handleImg = async e => { const f=e.target.files[0]; if(!f||f.size>5e6) return; try { const url=await compressImg(f); setMsgForm(p=>({...p,imageUrl:url})); } catch {} };
+  const handleImg = async e => { const f=e.target.files[0]; if(!f||f.size>5e6) return; try { const url=await compressImg(f); setMsgForm(p=>({...p,imageUrl:url})); } catch {} };
   const doAI = async () => { if(!msgForm.title) return; setAiLoading(true); const txt=await callGemini(`Write an engaging, warm event invitation for: "${msgForm.title}". Under 100 words, use emojis, friendly tone.`); setMsgForm(p=>({...p,description:txt})); setAiLoading(false); };
   const toggleRecip = id => setMsgForm(p=>({...p,recipients:p.recipients.includes(id)?p.recipients.filter(x=>x!==id):[...p.recipients,id]}));
   const selectAll = () => { const ids=members.map(u=>u.id); setMsgForm(p=>({...p,recipients:p.recipients.length===ids.length?[]:ids})); };
